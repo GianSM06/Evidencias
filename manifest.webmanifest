@@ -1,0 +1,15 @@
+{
+  "name": "Evidencias de Validación",
+  "short_name": "Evidencias",
+  "description": "Cámara para evidencias de protocolo: estampa Prueba N - Imagen n y la hora en cada foto.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    { "src": "icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

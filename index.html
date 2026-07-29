@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0d1117">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Evidencias">
+<title>Evidencias de Validación</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icono.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icono.svg">
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c232c; --line:#2b3541;
+    --tx:#e8edf3; --tx2:#9aa7b4; --acc:#2f81f7; --warn:#d29922;
+    --ok:#238636; --ok2:#2ea043; --stop:#b62324; --stop2:#da3633;
+    --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--tx);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    overscroll-behavior:none; user-select:none; -webkit-user-select:none;
+  }
+  button,input,select{font-family:inherit}
+  .oculto{display:none !important}
+
+  .btn{
+    width:100%; border:none; border-radius:14px; padding:18px; font-size:17px; font-weight:600;
+    background:var(--acc); color:#fff; margin-top:14px; cursor:pointer;
+  }
+  .btn:active{filter:brightness(.9)}
+  .btn:disabled{opacity:.4; cursor:default}
+  .btn.sec{background:var(--panel); color:var(--tx); border:1px solid var(--line)}
+  .btn.verde{background:var(--ok2)}
+  .campo{
+    width:100%; background:var(--panel); border:1px solid var(--line); color:var(--tx);
+    border-radius:14px; padding:18px; font-size:34px; font-weight:700; text-align:center;
+  }
+  .campo:focus{outline:none; border-color:var(--acc)}
+  label{display:block; font-size:14px; color:var(--tx2); margin:0 0 10px}
+
+  /* ---------- 1. Inicio / cierre ---------- */
+  #inicio, #cierre{
+    min-height:100%; display:flex; flex-direction:column; justify-content:center;
+    padding:calc(24px + var(--sat)) 22px calc(24px + var(--sab));
+    max-width:520px; margin:0 auto;
+  }
+  #inicio h1, #cierre h1{font-size:26px; margin:0 0 6px; letter-spacing:-.02em}
+  #inicio .sub, #cierre .sub{color:var(--tx2); font-size:15px; margin:0 0 30px; line-height:1.5}
+  .nota{color:var(--tx2); font-size:13px; line-height:1.55; margin-top:26px}
+  .nota b{color:var(--tx)}
+
+  /* ---------- 2. Selección de test ---------- */
+  #seleccion{position:fixed; inset:0; display:flex; flex-direction:column}
+  #selCab{
+    padding:calc(14px + var(--sat)) 16px 12px; background:var(--panel);
+    border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px;
+  }
+  #selCab .t{flex:1}
+  #selCab .t b{display:block; font-size:19px; letter-spacing:-.02em}
+  #selCab .t span{font-size:13px; color:var(--tx2)}
+  .iconbtn{
+    background:var(--panel2); border:1px solid var(--line); color:var(--tx2);
+    border-radius:10px; width:42px; height:42px; font-size:18px; cursor:pointer; flex:none;
+  }
+  #listaTests{flex:1; overflow-y:auto; padding:12px 14px; -webkit-overflow-scrolling:touch}
+  .tarjeta{
+    display:flex; align-items:center; gap:14px; width:100%; text-align:left;
+    background:var(--panel); border:1px solid var(--line); border-radius:13px;
+    padding:15px 16px; margin-bottom:9px; cursor:pointer; color:var(--tx);
+  }
+  .tarjeta.activa{border-color:var(--acc); background:#132033}
+  .tarjeta .num{
+    width:44px; height:44px; border-radius:11px; background:var(--panel2); flex:none;
+    display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800;
+  }
+  .tarjeta.activa .num{background:var(--acc); color:#fff}
+  .tarjeta .d{flex:1; min-width:0}
+  .tarjeta .d b{display:block; font-size:16px; font-weight:700}
+  .tarjeta .d span{font-size:13px; color:var(--tx2)}
+  .tarjeta .tic{font-size:17px; color:var(--ok2)}
+  #selPie{
+    padding:13px 14px calc(13px + var(--sab)); background:var(--panel); border-top:1px solid var(--line);
+  }
+  #selPie .btn:first-child{margin-top:0}
+  #selPie #btnFinalizar{margin-top:9px; padding:14px; font-size:15px}
+
+  /* repaso del protocolo */
+  #finalDetalle{max-height:38vh; overflow-y:auto; margin-bottom:18px}
+  .faltante{
+    background:var(--panel2); border:1px solid var(--line); border-left:3px solid var(--warn);
+    border-radius:10px; padding:11px 13px; margin-bottom:8px; font-size:13.5px; line-height:1.45;
+  }
+  .faltante b{display:block; margin-bottom:2px; font-size:14px}
+  .faltante span{color:var(--tx2)}
+  .todoOk{
+    background:#0f2417; border:1px solid #1f6f3c; border-radius:11px;
+    padding:15px; font-size:14px; line-height:1.5; color:#9be3b4;
+  }
+
+  /* ---------- 3. Captura ---------- */
+  #app{position:fixed; inset:0; display:flex; flex-direction:column}
+  #cab{
+    padding:calc(10px + var(--sat)) 12px 10px; background:var(--panel);
+    border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px;
+  }
+  #cab .info{flex:1; min-width:0}
+  #tituloTest{font-size:22px; font-weight:800; letter-spacing:-.02em; line-height:1.15}
+  #subTest{font-size:13px; color:var(--tx2); margin-top:3px}
+  #btnEditarCasos{
+    background:none; border:none; color:var(--acc); font-size:12.5px; font-weight:600;
+    padding:2px 0 0; cursor:pointer; text-decoration:underline;
+  }
+  #btnDetener{
+    background:var(--stop); border:1px solid var(--stop2); color:#fff; border-radius:11px;
+    padding:11px 15px; font-size:14px; font-weight:700; cursor:pointer; flex:none;
+  }
+
+  /* El visor replica la salida: la foto entera arriba (contain, sin recortar)
+     y el pie abajo, sin taparla. Lo que ves es lo que se guarda. */
+  #visor{
+    flex:1; position:relative; background:#000; overflow:hidden; min-height:0;
+    display:flex; flex-direction:column;
+  }
+  #video{flex:1; min-height:0; width:100%; object-fit:contain; display:block}
+  #marcaAgua{flex:none; background:#000; padding:7px 12px; pointer-events:none}
+  #marcaAgua .l1{
+    font-size:13.5px; font-weight:700; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;
+  }
+  #flash{position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none}
+  #flash.on{animation:fl .28s ease-out}
+  @keyframes fl{from{opacity:.85}to{opacity:0}}
+  #sinCamara{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:16px; padding:26px; text-align:center; color:var(--tx2); font-size:14px;
+  }
+  #sinCamara .big{font-size:44px}
+
+  #filaTira{
+    display:flex; align-items:center; gap:10px; background:var(--panel);
+    border-top:1px solid var(--line); padding-right:12px;
+  }
+  #tira{
+    flex:1; min-width:0; display:flex; gap:7px; padding:9px 12px; overflow-x:auto;
+    min-height:62px; align-items:center;
+  }
+  #btnGuardarPend{
+    flex:none; background:var(--warn); border:none; color:#1b1200; border-radius:11px;
+    padding:9px 13px; font-size:12px; font-weight:800; cursor:pointer; line-height:1.15;
+  }
+  #btnGuardarPend b{display:block; font-size:17px; margin-top:1px}
+  .btn.guardar{background:var(--warn); color:#1b1200}
+  #tira:empty::after{content:"Las fotos de esta prueba aparecen acá"; color:var(--tx2); font-size:12.5px}
+  #tira img{
+    width:44px; height:44px; border-radius:7px; object-fit:cover; flex:none;
+    border:1px solid var(--line); cursor:pointer;
+  }
+
+  #controles{
+    background:var(--panel); border-top:1px solid var(--line);
+    padding:14px 14px calc(14px + var(--sab)); display:flex; align-items:center; gap:14px;
+  }
+  .nav{
+    flex:1; background:var(--panel2); border:1px solid var(--line); color:var(--tx);
+    border-radius:13px; padding:14px 6px; font-size:13.5px; font-weight:600; cursor:pointer; line-height:1.3;
+  }
+  .nav:disabled{opacity:.32; cursor:default}
+  .nav small{display:block; font-size:11px; color:var(--tx2); font-weight:500; margin-top:2px}
+  #obturador{
+    width:80px; height:80px; border-radius:50%; border:5px solid var(--panel2);
+    background:#fff; flex:none; cursor:pointer; box-shadow:0 0 0 3px var(--line);
+  }
+  #obturador:active{transform:scale(.93)}
+  #obturador:disabled{opacity:.45}
+
+  /* ---------- Avisos y modales ---------- */
+  #aviso{
+    position:fixed; left:50%; transform:translateX(-50%); bottom:calc(120px + var(--sab));
+    background:rgba(20,26,34,.97); border:1px solid var(--line); color:var(--tx);
+    padding:11px 18px; border-radius:11px; font-size:14px; font-weight:600;
+    opacity:0; transition:opacity .2s; pointer-events:none; z-index:90; max-width:88vw; text-align:center;
+  }
+  #aviso.ver{opacity:1}
+  #aviso.err{border-color:#f85149; color:#ffc9c4}
+
+  .modal{position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:80; display:flex; align-items:flex-end; justify-content:center}
+  .modal .caja{
+    background:var(--panel); width:100%; max-width:520px; border-radius:18px 18px 0 0;
+    padding:22px 20px calc(22px + var(--sab)); border-top:1px solid var(--line);
+  }
+  .modal h2{margin:0 0 6px; font-size:19px}
+  .modal p.ayuda{margin:0 0 18px; font-size:13.5px; color:var(--tx2); line-height:1.5}
+  .fila{margin-bottom:18px}
+  .fila > span{display:block; font-size:14px; margin-bottom:8px}
+  .fila small{display:block; color:var(--tx2); font-size:12.5px; line-height:1.5; margin-top:7px}
+  select.campo{font-size:15px; font-weight:500; padding:14px; text-align:left}
+</style>
+</head>
+<body>
+
+<!-- ============ 1. INICIO ============ -->
+<section id="inicio">
+  <h1>Evidencias de validación</h1>
+  <p class="sub">Sacá las fotos del protocolo. Cada una queda con el test, el caso de prueba y la hora estampados en la imagen.</p>
+
+  <label for="cantTests">¿Cuántos tests tiene el protocolo?</label>
+  <input id="cantTests" class="campo" type="number" inputmode="numeric" min="1" max="999" value="10">
+
+  <button id="btnEmpezar" class="btn">Cargar los tests</button>
+  <button id="btnRetomar" class="btn sec oculto">Retomar donde quedé</button>
+
+  <p class="nota" id="diag" style="color:#ffc9c4; border-left:3px solid #da3633; padding-left:11px">
+    <b>JavaScript no se está ejecutando.</b> Así la app no puede funcionar: los botones no
+    van a responder. Pasa cuando se abre el archivo local en iPhone en vez de un link.
+  </p>
+
+  <p class="nota">
+    <b>Android:</b> cada foto baja a <b>Descargas</b> y la galería la muestra en el álbum “Download”.
+    La primera vez el teléfono pregunta si permitís descargar varios archivos: aceptá.<br><br>
+    <b>iPhone:</b> se abre el menú de compartir y elegís <b>“Guardar imagen”</b> para que vaya al Carrete.
+  </p>
+</section>
+
+<!-- ============ 2. SELECCIÓN DE TEST ============ -->
+<section id="seleccion" class="oculto">
+  <header id="selCab">
+    <div class="t">
+      <b>Elegí el test</b>
+      <span id="selResumen">—</span>
+    </div>
+    <button id="btnAjustes" class="iconbtn" title="Ajustes">⚙</button>
+  </header>
+
+  <div id="listaTests"></div>
+
+  <div id="selPie">
+    <button id="btnGuardarPendLista" class="btn guardar oculto">Guardar fotos en Fotos</button>
+    <button id="btnIniciar" class="btn verde">Iniciar Test 1</button>
+    <button id="btnFinalizar" class="btn sec">Finalizar protocolo</button>
+  </div>
+</section>
+
+<!-- ============ 4. CIERRE ============ -->
+<section id="cierre" class="oculto">
+  <h1>Protocolo finalizado</h1>
+  <p class="sub" id="cierreResumen">—</p>
+  <button id="btnVolverLista" class="btn sec">Volver a la lista</button>
+  <button id="btnNuevoProtocolo" class="btn">Empezar un protocolo nuevo</button>
+  <p class="nota">Las fotos ya están guardadas en el teléfono. Empezar un protocolo nuevo solo reinicia los contadores de la app; no toca ninguna foto.</p>
+</section>
+
+<!-- ============ 3. CAPTURA ============ -->
+<section id="app" class="oculto">
+  <header id="cab">
+    <div class="info">
+      <div id="tituloTest">Test 1</div>
+      <div id="subTest">Prueba 1 de 1</div>
+      <button id="btnEditarCasos">cambiar cantidad de casos</button>
+    </div>
+    <button id="btnDetener">■ Detener</button>
+  </header>
+
+  <div id="visor">
+    <video id="video" playsinline autoplay muted></video>
+    <div id="marcaAgua">
+      <div class="l1" id="maL1">Test 1 - Prueba 1 - Imagen 1</div>
+    </div>
+    <div id="flash"></div>
+    <div id="sinCamara" class="oculto">
+      <div class="big">📷</div>
+      <div id="sinCamaraTx">Tocá el botón blanco para sacar la foto.</div>
+    </div>
+  </div>
+
+  <div id="filaTira">
+    <div id="tira"></div>
+    <button id="btnGuardarPend" class="oculto">Guardar<b>0</b></button>
+  </div>
+
+  <div id="controles">
+    <button id="btnAnterior" class="nav">◀ Anterior<small>Prueba —</small></button>
+    <button id="obturador" title="Sacar foto"></button>
+    <button id="btnSiguiente" class="nav">Siguiente ▶<small>Prueba —</small></button>
+  </div>
+</section>
+
+<input id="fileCam" type="file" accept="image/*" capture="environment" class="oculto">
+<div id="aviso"></div>
+
+<!-- ============ MODAL: cantidad de casos ============ -->
+<section id="modalCasos" class="modal oculto">
+  <div class="caja">
+    <h2 id="tituloModalCasos">Iniciar Test 1</h2>
+    <p class="ayuda">¿Cuántos casos de prueba tiene este test?</p>
+    <input id="inpCasos" class="campo" type="number" inputmode="numeric" min="1" max="999" value="1">
+    <button id="btnConfirmarCasos" class="btn verde">Empezar a tomar evidencias</button>
+    <button id="btnCancelarCasos" class="btn sec">Cancelar</button>
+  </div>
+</section>
+
+<!-- ============ MODAL: fotos sin guardar (iPhone) ============ -->
+<section id="modalPendientes" class="modal oculto">
+  <div class="caja">
+    <h2>Fotos sin guardar</h2>
+    <p class="ayuda" id="txtPendientes">—</p>
+    <button id="btnGuardarAhora" class="btn guardar">Guardar ahora</button>
+    <button id="btnSeguirSinGuardar" class="btn sec">Seguir sin guardar</button>
+    <p class="ayuda" style="margin:14px 0 0">Si seguís sin guardar, las fotos quedan en la app y podés guardarlas después con el botón naranja. No se pierden.</p>
+  </div>
+</section>
+
+<!-- ============ MODAL: repaso antes de finalizar ============ -->
+<section id="modalFinal" class="modal oculto">
+  <div class="caja">
+    <h2>Finalizar protocolo</h2>
+    <p class="ayuda" id="finalResumen">—</p>
+    <div id="finalDetalle"></div>
+    <button id="btnConfirmarFinal" class="btn">Finalizar igual</button>
+    <button id="btnCancelarFinal" class="btn sec">Cancelar, seguir trabajando</button>
+  </div>
+</section>
+
+<!-- ============ MODAL: ajustes ============ -->
+<section id="ajustes" class="modal oculto">
+  <div class="caja">
+    <h2>Ajustes</h2>
+    <p class="ayuda">&nbsp;</p>
+
+    <div class="fila">
+      <span>Cómo guardar cada foto</span>
+      <select id="selGuardado" class="campo">
+        <option value="descargar">Descargar (Android / PC)</option>
+        <option value="compartir">Menú de compartir (iPhone)</option>
+      </select>
+      <small>En iPhone, “compartir” es la única vía que deja guardar la foto en el Carrete.</small>
+    </div>
+
+    <div class="fila">
+      <span>Cantidad de tests del protocolo</span>
+      <input id="inpTotalTests" class="campo" type="number" inputmode="numeric" min="1" max="999">
+      <small>Podés ampliarla si el protocolo tenía más tests de los que cargaste.</small>
+    </div>
+
+    <button id="btnCerrarAjustes" class="btn">Listo</button>
+    <button id="btnReiniciar" class="btn sec">Empezar un protocolo nuevo</button>
+  </div>
+</section>
+
+<!-- Cazador de errores. Va aparte y en sintaxis vieja a propósito: si el script
+     principal no arranca, este igual tiene que poder contarlo en pantalla. -->
+<script>
+window.addEventListener("error", function(e){
+  var d = document.getElementById("diag");
+  if(!d) return;
+  d.innerHTML = "<b>Error de JavaScript:</b><br>" +
+    ((e && e.message) ? e.message : e) +
+    ((e && e.lineno) ? "<br>linea " + e.lineno : "");
+});
+</script>
+
+<script>
+(function(){
+"use strict";
+
+// Si llegamos hasta acá, el JavaScript corre. Lo decimos en pantalla.
+(function(){
+  var d = document.getElementById("diag");
+  if(d) d.parentNode.removeChild(d);
+})();
+
+/* =======================================================================
+   Estado
+   Jerarquía: Test N  ->  Prueba n (caso de prueba)  ->  Imagen a
+   ======================================================================= */
+const CLAVE = "evidencias.sesion.v2";
+
+const S = {
+  totalTests: 10,     // cantidad de tests del protocolo
+  test: 1,            // test seleccionado / en curso
+  caso: 1,            // caso de prueba dentro del test
+  capturando: false,  // true entre "Iniciar" y "Detener"
+  finalizado: false,  // true tras confirmar "Finalizar protocolo"
+  casos: {},          // { test: cantidad de casos }
+  ultimoCaso: {},     // { test: último caso trabajado }
+  conteos: {},        // { test: { caso: cantidad de imágenes } }
+  guardado: "descargar"
+};
+
+function guardarEstado(){
+  try{ localStorage.setItem(CLAVE, JSON.stringify(S)); }catch(e){}
+}
+function cargarEstado(){
+  try{
+    const v = JSON.parse(localStorage.getItem(CLAVE) || "null");
+    if(v && v.totalTests > 0){ Object.assign(S, v); return true; }
+  }catch(e){}
+  return false;
+}
+
+const casosDe    = t => S.casos[t] || 0;
+const fotosDe    = (t,c) => (S.conteos[t] && S.conteos[t][c]) || 0;
+function sumarFoto(t,c,n){ if(!S.conteos[t]) S.conteos[t] = {}; S.conteos[t][c] = n; }
+function fotosDelTest(t){
+  const m = S.conteos[t]; let s = 0;
+  if(m) for(const k in m) s += m[k];
+  return s;
+}
+
+/* =======================================================================
+   Utilidades
+   ======================================================================= */
+const $ = s => document.querySelector(s);
+const dosDig = n => String(n).padStart(2, "0");
+
+// La hora no se usa en ningún lado: ni en el pie de foto ni en el nombre del archivo.
+
+let avisoTimer = null;
+function avisar(texto, esError){
+  const el = $("#aviso");
+  el.textContent = texto;
+  el.classList.toggle("err", !!esError);
+  el.classList.add("ver");
+  clearTimeout(avisoTimer);
+  avisoTimer = setTimeout(() => el.classList.remove("ver"), esError ? 4200 : 1800);
+}
+
+const esIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+              (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+/* =======================================================================
+   Estampado del pie de foto (banda DEBAJO de la imagen: no tapa evidencia)
+   Es SINCRÓNICO a propósito: Safari solo abre el menú de compartir si
+   navigator.share() se llama dentro del mismo gesto del usuario.
+   ======================================================================= */
+const ANCHO_MAX = 3000;
+
+function dataURLaBlob(dataURL){
+  const coma = dataURL.indexOf(",");
+  const bin = atob(dataURL.slice(coma + 1));
+  const bytes = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: "image/jpeg" });
+}
+
+const FUENTE = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+
+/* La imagen final mide LO MISMO que la foto original: la foto se achica lo justo
+   para dejarle lugar al pie abajo. No se recorta ni se tapa nada.
+   El pie lleva solo la identificación (test, prueba e imagen). */
+function estamparFoto(fuente, anchoOrig, altoOrig, linea1){
+  let W = anchoOrig, H = altoOrig;
+  if(W > ANCHO_MAX){ H = Math.round(H * ANCHO_MAX / W); W = ANCHO_MAX; }
+
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const cx = cv.getContext("2d");
+  cx.textBaseline = "alphabetic";
+
+  const banda = Math.max(26, Math.round(H * 0.045));
+  const pad   = Math.round(banda * 0.34);
+
+  // el cuerpo de letra más grande que entre a lo ancho
+  let cuerpo = Math.round(banda * 0.46);
+  cx.font = "700 " + cuerpo + "px " + FUENTE;
+  const disponible = W - pad * 2;
+  const anchoTexto = cx.measureText(linea1).width;
+  if(anchoTexto > disponible) cuerpo = Math.max(10, Math.floor(cuerpo * disponible / anchoTexto));
+
+  // fondo negro: queda detrás del pie y en los márgenes laterales que deja la foto
+  cx.fillStyle = "#000";
+  cx.fillRect(0, 0, W, H);
+
+  // la foto, escalada proporcionalmente y centrada
+  const altoFoto = H - banda;
+  const escala = Math.min(W / anchoOrig, altoFoto / altoOrig);
+  const anchoDib = Math.round(anchoOrig * escala);
+  const altoDib  = Math.round(altoOrig * escala);
+  cx.drawImage(fuente, Math.round((W - anchoDib) / 2), Math.round((altoFoto - altoDib) / 2),
+               anchoDib, altoDib);
+
+  cx.fillStyle = "#fff";
+  cx.font = "700 " + cuerpo + "px " + FUENTE;
+  cx.fillText(linea1, pad, H - banda + Math.round(banda * 0.70));
+
+  return dataURLaBlob(cv.toDataURL("image/jpeg", 0.92));
+}
+
+/* =======================================================================
+   Guardado en el teléfono
+   ======================================================================= */
+function descargar(blob, nombre){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 20000);
+}
+
+function guardarFoto(blob, nombre){
+  if(S.guardado === "compartir"){
+    try{
+      const archivo = new File([blob], nombre, { type: "image/jpeg" });
+      if(navigator.canShare && navigator.canShare({ files: [archivo] })){
+        return navigator.share({ files: [archivo] })
+          .then(() => true)
+          .catch(e => {
+            if(e && e.name === "AbortError") return false;
+            descargar(blob, nombre);
+            return true;
+          });
+      }
+    }catch(e){ /* cae a la descarga */ }
+  }
+  descargar(blob, nombre);
+  return Promise.resolve(true);
+}
+
+/* =======================================================================
+   Cola de fotos pendientes (modo iPhone)
+   iOS no deja escribir en Fotos sin pasar por el menú de compartir, y hacerlo
+   foto por foto es insufrible. Entonces se acumulan y se guardan todas juntas:
+   el menú ofrece "Guardar N imágenes" y van al Carrete de un solo toque.
+   Se respaldan en IndexedDB por si el sistema descarta la pestaña con el
+   teléfono en el bolsillo.
+   ======================================================================= */
+let pendientes = [];          // [{id, nombre, blob}]
+let bd = null;
+
+function abrirBD(){
+  if(bd) return Promise.resolve(bd);
+  return new Promise((res, rej) => {
+    const p = indexedDB.open("evidencias", 1);
+    p.onupgradeneeded = () => {
+      if(!p.result.objectStoreNames.contains("pendientes"))
+        p.result.createObjectStore("pendientes", { keyPath: "id", autoIncrement: true });
+    };
+    p.onsuccess = () => { bd = p.result; res(bd); };
+    p.onerror = () => rej(p.error);
+  });
+}
+
+function conTienda(modo, fn){
+  return abrirBD().then(db => new Promise((res, rej) => {
+    const tx = db.transaction("pendientes", modo);
+    const pedido = fn(tx.objectStore("pendientes"));
+    tx.oncomplete = () => res(pedido && pedido.result);
+    tx.onerror = () => rej(tx.error);
+  }));
+}
+
+async function encolar(blob, nombre){
+  const reg = { nombre: nombre, blob: blob, ts: Date.now() };
+  try{ reg.id = await conTienda("readwrite", t => t.add(reg)); }
+  catch(e){ reg.id = "mem-" + Date.now(); }     // sin IndexedDB, queda solo en memoria
+  pendientes.push(reg);
+  pintarPendientes();
+}
+
+async function vaciarPendientes(){
+  pendientes = [];
+  try{ await conTienda("readwrite", t => t.clear()); }catch(e){}
+  pintarPendientes();
+}
+
+async function recuperarPendientes(){
+  try{
+    const guardados = await conTienda("readonly", t => t.getAll());
+    if(guardados && guardados.length){
+      pendientes = guardados;
+      pintarPendientes();
+      avisar(pendientes.length + " fotos sin guardar de antes", true);
+    }
+  }catch(e){}
+}
+
+/* Devuelve true si se guardaron. El share sale dentro del gesto del usuario:
+   los blobs ya están en memoria, así que no hay ningún await antes. */
+function guardarPendientes(){
+  if(!pendientes.length) return Promise.resolve(true);
+  const lote = pendientes.slice();
+  const archivos = lote.map(p => new File([p.blob], p.nombre, { type: "image/jpeg" }));
+
+  if(!(navigator.canShare && navigator.canShare({ files: archivos }))){
+    lote.forEach(p => descargar(p.blob, p.nombre));         // respaldo: descarga suelta
+    return vaciarPendientes().then(() => {
+      avisar(lote.length + " fotos descargadas");
+      return true;
+    });
+  }
+
+  return navigator.share({ files: archivos })
+    .then(() => vaciarPendientes().then(() => {
+      avisar(lote.length + (lote.length === 1 ? " foto guardada" : " fotos guardadas"));
+      return true;
+    }))
+    .catch(e => {
+      if(e && e.name === "AbortError") return false;        // cerró el menú: siguen en cola
+      avisar("No se pudieron guardar. Probá guardando de a menos.", true);
+      return false;
+    });
+}
+
+function pintarPendientes(){
+  const n = pendientes.length;
+  const hay = n > 0 && S.guardado === "compartir";
+
+  const bCap = $("#btnGuardarPend");
+  bCap.classList.toggle("oculto", !hay);
+  bCap.innerHTML = "Guardar<b>" + n + "</b>";
+
+  const bSel = $("#btnGuardarPendLista");
+  bSel.classList.toggle("oculto", !hay);
+  bSel.textContent = "Guardar " + n + (n === 1 ? " foto" : " fotos") + " en Fotos";
+}
+
+/* Antes de detener o finalizar, ofrece guardar lo que quedó en la cola. */
+let trasGuardar = null;
+
+function pedirGuardado(continuar){
+  if(S.guardado !== "compartir" || !pendientes.length){ continuar(); return; }
+  trasGuardar = continuar;
+  const n = pendientes.length;
+  $("#txtPendientes").textContent =
+    n + (n === 1 ? " foto todavía no está" : " fotos todavía no están") +
+    " en el Carrete del teléfono.";
+  $("#btnGuardarAhora").textContent = "Guardar " + n + (n === 1 ? " foto" : " fotos") + " ahora";
+  $("#modalPendientes").classList.remove("oculto");
+}
+
+function seguirTrasGuardado(){
+  $("#modalPendientes").classList.add("oculto");
+  const f = trasGuardar;
+  trasGuardar = null;
+  if(f) f();
+}
+
+/* =======================================================================
+   Cámara
+   ======================================================================= */
+let stream = null;
+let hayCamaraViva = false;
+
+const camaraViva = () =>
+  !!stream && stream.getVideoTracks().some(t => t.readyState === "live");
+
+async function iniciarCamara(){
+  const video = $("#video");
+  // Si la pantalla se bloqueó, el sistema pudo matar la pista: hay que rearmarla.
+  if(stream){
+    if(camaraViva()) return;
+    detenerCamara();
+  }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.isSecureContext){
+    return modoCamaraNativa("El navegador no da acceso directo a la cámara acá.");
+  }
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+    hayCamaraViva = true;
+    $("#sinCamara").classList.add("oculto");
+    $("#video").classList.remove("oculto");
+  }catch(e){
+    modoCamaraNativa(e && e.name === "NotAllowedError"
+      ? "No se dio permiso de cámara."
+      : "No se pudo abrir la cámara en vivo.");
+  }
+}
+
+function detenerCamara(){
+  if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
+  hayCamaraViva = false;
+}
+
+function modoCamaraNativa(motivo){
+  hayCamaraViva = false;
+  $("#video").classList.add("oculto");
+  $("#sinCamara").classList.remove("oculto");
+  $("#sinCamaraTx").innerHTML =
+    motivo + "<br><br>Se usa la <b>cámara del sistema</b>: tocá el botón blanco, sacá la foto y volvé.";
+}
+
+/* =======================================================================
+   Pantalla 2: selección de test
+   ======================================================================= */
+function mostrarSeleccion(){
+  detenerCamara();
+  S.capturando = false;
+  guardarEstado();
+  $("#inicio").classList.add("oculto");
+  $("#app").classList.add("oculto");
+  $("#cierre").classList.add("oculto");
+  $("#seleccion").classList.remove("oculto");
+  pintarListaTests();
+  pintarPendientes();
+}
+
+function pintarListaTests(){
+  const cont = $("#listaTests");
+  cont.innerHTML = "";
+  let conEvidencia = 0;
+
+  for(let t = 1; t <= S.totalTests; t++){
+    const nCasos = casosDe(t), nFotos = fotosDelTest(t);
+    if(nFotos > 0) conEvidencia++;
+
+    const b = document.createElement("button");
+    b.className = "tarjeta" + (t === S.test ? " activa" : "");
+    b.innerHTML =
+      '<span class="num">' + t + '</span>' +
+      '<span class="d"><b>Test ' + t + '</b><span>' +
+        (nCasos === 0
+          ? "Sin iniciar"
+          : nCasos + (nCasos === 1 ? " caso" : " casos") + " · " +
+            (nFotos === 0 ? "sin fotos" : nFotos + (nFotos === 1 ? " foto" : " fotos"))) +
+      '</span></span>' +
+      (nFotos > 0 ? '<span class="tic">●</span>' : '');
+    b.addEventListener("click", () => {
+      S.test = t;
+      guardarEstado();
+      pintarListaTests();
+    });
+    cont.appendChild(b);
+  }
+
+  $("#btnIniciar").textContent =
+    (casosDe(S.test) > 0 ? "Reanudar Test " : "Iniciar Test ") + S.test;
+  $("#selResumen").textContent =
+    S.totalTests + " tests · " + conEvidencia + " con evidencias" +
+    (S.finalizado ? " · finalizado" : "");
+}
+
+/* =======================================================================
+   Finalizar el protocolo: repasa qué quedó sin evidencia.
+   Avisa, pero no traba: una prueba puede legítimamente no aplicar.
+   ======================================================================= */
+function repasoProtocolo(){
+  const sinIniciar = [], incompletos = [];
+  let totalFotos = 0, testsConEvidencia = 0;
+
+  for(let t = 1; t <= S.totalTests; t++){
+    const nCasos = casosDe(t), nFotos = fotosDelTest(t);
+    totalFotos += nFotos;
+    if(nFotos > 0) testsConEvidencia++;
+    if(nCasos === 0){ sinIniciar.push(t); continue; }
+    const faltan = [];
+    for(let c = 1; c <= nCasos; c++) if(fotosDe(t, c) === 0) faltan.push(c);
+    if(faltan.length) incompletos.push({ test: t, faltan: faltan });
+  }
+  return { sinIniciar, incompletos, totalFotos, testsConEvidencia };
+}
+
+const enumerar = (arr, uno, varios) =>
+  (arr.length === 1 ? uno + " " + arr[0]
+                    : varios + " " + arr.slice(0, -1).join(", ") + " y " + arr[arr.length - 1]);
+
+function abrirFinal(){
+  const r = repasoProtocolo();
+  const det = $("#finalDetalle");
+  det.innerHTML = "";
+
+  $("#finalResumen").textContent =
+    r.totalFotos + (r.totalFotos === 1 ? " foto sacada" : " fotos sacadas") + " · " +
+    r.testsConEvidencia + " de " + S.totalTests + " tests con evidencias.";
+
+  if(!r.sinIniciar.length && !r.incompletos.length){
+    det.innerHTML = '<div class="todoOk">Todos los tests y todos sus casos de prueba tienen al menos una foto.</div>';
+    $("#btnConfirmarFinal").textContent = "Finalizar";
+  }else{
+    if(r.sinIniciar.length){
+      const d = document.createElement("div");
+      d.className = "faltante";
+      d.innerHTML = "<b>Sin iniciar</b><span>" +
+        enumerar(r.sinIniciar, "Test", "Tests") + ". No se les cargaron casos de prueba.</span>";
+      det.appendChild(d);
+    }
+    r.incompletos.forEach(i => {
+      const d = document.createElement("div");
+      d.className = "faltante";
+      d.innerHTML = "<b>Test " + i.test + "</b><span>Sin fotos en " +
+        enumerar(i.faltan, "la prueba", "las pruebas") + ".</span>";
+      det.appendChild(d);
+    });
+    $("#btnConfirmarFinal").textContent = "Finalizar igual";
+  }
+
+  $("#modalFinal").classList.remove("oculto");
+}
+
+function confirmarFinal(){
+  const r = repasoProtocolo();
+  S.finalizado = true;
+  S.capturando = false;
+  guardarEstado();
+  $("#modalFinal").classList.add("oculto");
+  $("#seleccion").classList.add("oculto");
+  $("#app").classList.add("oculto");
+  $("#cierre").classList.remove("oculto");
+  $("#cierreResumen").textContent =
+    r.totalFotos + (r.totalFotos === 1 ? " foto" : " fotos") + " en " +
+    r.testsConEvidencia + " de " + S.totalTests + " tests. " +
+    (r.sinIniciar.length || r.incompletos.length
+      ? "Quedaron pruebas sin evidencia."
+      : "Todos los casos de prueba quedaron cubiertos.");
+}
+
+/* =======================================================================
+   Modal: cantidad de casos de prueba
+   ======================================================================= */
+let modoModalCasos = "iniciar";   // "iniciar" | "editar"
+
+function pedirCasos(modo){
+  modoModalCasos = modo;
+  const yaTiene = casosDe(S.test);
+  $("#tituloModalCasos").textContent =
+    modo === "editar" ? "Test " + S.test : (yaTiene ? "Reanudar Test " : "Iniciar Test ") + S.test;
+  $("#inpCasos").value = yaTiene > 0 ? yaTiene : 1;
+  $("#btnConfirmarCasos").textContent =
+    modo === "editar" ? "Guardar" : "Empezar a tomar evidencias";
+  $("#modalCasos").classList.remove("oculto");
+  setTimeout(() => { $("#inpCasos").focus(); $("#inpCasos").select(); }, 60);
+}
+
+function confirmarCasos(){
+  const n = parseInt($("#inpCasos").value, 10);
+  if(!(n >= 1 && n <= 999)){ avisar("Poné una cantidad de casos válida", true); return; }
+
+  const previos = casosDe(S.test);
+  if(modoModalCasos === "editar" && n < previos){
+    const conFotos = [];
+    for(let c = n + 1; c <= previos; c++) if(fotosDe(S.test, c) > 0) conFotos.push(c);
+    if(conFotos.length && !confirm(
+        "Las pruebas " + conFotos.join(", ") + " ya tienen fotos y quedarían fuera del test.\n\n" +
+        "Las fotos ya guardadas en el teléfono no se borran. ¿Seguir igual?")) return;
+  }
+
+  S.casos[S.test] = n;
+  $("#modalCasos").classList.add("oculto");
+
+  if(modoModalCasos === "editar"){
+    if(S.caso > n) S.caso = n;
+    guardarEstado();
+    pintarCaptura();
+    return;
+  }
+
+  const retomar = S.ultimoCaso[S.test];
+  S.caso = (retomar && retomar <= n) ? retomar : 1;
+  arrancarCaptura();
+}
+
+/* =======================================================================
+   Pantalla 3: captura
+   ======================================================================= */
+function arrancarCaptura(){
+  S.capturando = true;
+  S.ultimoCaso[S.test] = S.caso;
+  guardarEstado();
+  $("#inicio").classList.add("oculto");
+  $("#seleccion").classList.add("oculto");
+  $("#app").classList.remove("oculto");
+  pintarCaptura();
+  pintarTira();
+  pintarPendientes();
+  iniciarCamara();
+}
+
+function detenerCaptura(){
+  const fotos = fotosDelTest(S.test);
+  if(!confirm("¿Detener el Test " + S.test + "?\n\n" +
+      (fotos ? "Llevás " + fotos + (fotos === 1 ? " foto." : " fotos.") + " " : "") +
+      "Vas a volver a la lista para elegir otro test. Lo podés reanudar cuando quieras.")) return;
+  const n = S.test;
+  pedirGuardado(() => {
+    mostrarSeleccion();
+    avisar("Test " + n + " detenido");
+  });
+}
+
+function pintarCaptura(){
+  const nCasos = casosDe(S.test);
+  const sacadas = fotosDe(S.test, S.caso);
+
+  $("#tituloTest").textContent = "Test " + S.test + " · Prueba " + S.caso;
+  $("#subTest").textContent =
+    "Prueba " + S.caso + " de " + nCasos + " · " +
+    (sacadas === 0 ? "sin fotos" : sacadas + (sacadas === 1 ? " foto" : " fotos"));
+
+  $("#maL1").textContent = "Test " + S.test + " - Prueba " + S.caso + " - Imagen " + (sacadas + 1);
+
+  const ant = $("#btnAnterior"), sig = $("#btnSiguiente");
+  ant.disabled = S.caso <= 1;
+  sig.disabled = S.caso >= nCasos;
+  ant.querySelector("small").textContent = S.caso > 1 ? "Prueba " + (S.caso - 1) : "—";
+  sig.querySelector("small").textContent = S.caso < nCasos ? "Prueba " + (S.caso + 1) : "Última";
+}
+
+function irACaso(n){
+  const destino = Math.min(Math.max(1, n), casosDe(S.test));
+  if(destino === S.caso) return;
+  S.caso = destino;
+  S.ultimoCaso[S.test] = destino;
+  guardarEstado();
+  pintarCaptura();
+  pintarTira();
+  avisar("Prueba " + S.caso);
+}
+
+/* =======================================================================
+   Sacar la foto
+   ======================================================================= */
+let ocupado = false;
+
+function textosPie(){
+  const nImagen = fotosDe(S.test, S.caso) + 1;
+  return {
+    nImagen: nImagen,
+    l1: "Test " + S.test + " - Prueba " + S.caso + " - Imagen " + nImagen,
+    // el nombre del archivo repite el pie de foto, nada más
+    archivo: "Test_" + dosDig(S.test) + "_Prueba_" + dosDig(S.caso) +
+             "_Imagen_" + dosDig(nImagen) + ".jpg"
+  };
+}
+
+function sacarFoto(){
+  if(ocupado || !S.capturando) return;
+  if(!hayCamaraViva){ $("#fileCam").click(); return; }
+  if(!camaraViva()){ avisar("Reconectando la cámara…", true); iniciarCamara(); return; }
+
+  const video = $("#video");
+  if(!video.videoWidth){ avisar("La cámara todavía no está lista", true); return; }
+
+  ocupado = true;
+  $("#obturador").disabled = true;
+  $("#flash").classList.remove("on");
+  void $("#flash").offsetWidth;
+  $("#flash").classList.add("on");
+
+  let t, blob;
+  try{
+    t = textosPie();
+    blob = estamparFoto(video, video.videoWidth, video.videoHeight, t.l1);
+  }catch(e){
+    avisar("No se pudo sacar la foto", true);
+    ocupado = false; $("#obturador").disabled = false;
+    return;
+  }
+  // sin await antes de este punto: el gesto del usuario sigue vivo (Safari)
+  registrarFoto(blob, t).finally(() => {
+    ocupado = false;
+    $("#obturador").disabled = false;
+  });
+}
+
+async function fotoDesdeArchivo(archivo){
+  if(!archivo || ocupado) return;
+  ocupado = true;
+  $("#obturador").disabled = true;
+  try{
+    let fuente, w, h;
+    if(window.createImageBitmap){
+      fuente = await createImageBitmap(archivo, { imageOrientation: "from-image" });
+      w = fuente.width; h = fuente.height;
+    }else{
+      fuente = await new Promise((res, rej) => {
+        const im = new Image();
+        im.onload = () => res(im);
+        im.onerror = rej;
+        im.src = URL.createObjectURL(archivo);
+      });
+      w = fuente.naturalWidth; h = fuente.naturalHeight;
+    }
+    const t = textosPie();
+    const blob = estamparFoto(fuente, w, h, t.l1);
+    if(fuente.close) fuente.close();
+    await registrarFoto(blob, t);
+  }catch(e){
+    avisar("No se pudo procesar la foto", true);
+  }finally{
+    ocupado = false;
+    $("#obturador").disabled = false;
+    $("#fileCam").value = "";
+  }
+}
+
+async function registrarFoto(blob, t){
+  if(S.guardado === "compartir"){
+    await encolar(blob, t.archivo);          // se guardan todas juntas más tarde
+  }else{
+    const ok = await guardarFoto(blob, t.archivo);
+    if(!ok){ avisar("Foto descartada", true); return; }
+  }
+
+  sumarFoto(S.test, S.caso, t.nImagen);
+  S.finalizado = false;          // si volviste a sacar fotos, el protocolo sigue abierto
+  guardarEstado();
+  agregarMiniatura(blob, t.archivo);
+  pintarCaptura();
+  avisar("Test " + S.test + " · Prueba " + S.caso + " · Imagen " + t.nImagen);
+}
+
+/* =======================================================================
+   Miniaturas del caso en curso
+   ======================================================================= */
+const miniaturas = {};                       // "test/caso" -> [{url, nombre, blob}]
+const claveMini = () => S.test + "/" + S.caso;
+
+function agregarMiniatura(blob, nombre){
+  const k = claveMini();
+  if(!miniaturas[k]) miniaturas[k] = [];
+  miniaturas[k].push({ url: URL.createObjectURL(blob), nombre: nombre, blob: blob });
+  pintarTira();
+}
+
+function pintarTira(){
+  const tira = $("#tira");
+  tira.innerHTML = "";
+  (miniaturas[claveMini()] || []).forEach(f => {
+    const im = document.createElement("img");
+    im.src = f.url;
+    im.title = f.nombre;
+    im.addEventListener("click", () => {
+      guardarFoto(f.blob, f.nombre);
+      avisar("Guardada de nuevo");
+    });
+    tira.appendChild(im);
+  });
+  tira.scrollLeft = tira.scrollWidth;
+}
+
+/* =======================================================================
+   Eventos
+   ======================================================================= */
+$("#btnEmpezar").addEventListener("click", () => {
+  const n = parseInt($("#cantTests").value, 10);
+  if(!(n >= 1 && n <= 999)){ avisar("Poné un número de tests válido", true); return; }
+  S.totalTests = n;
+  S.test = 1; S.caso = 1; S.capturando = false; S.finalizado = false;
+  S.casos = {}; S.ultimoCaso = {}; S.conteos = {};
+  S.guardado = esIOS ? "compartir" : "descargar";
+  guardarEstado();
+  mostrarSeleccion();
+});
+
+$("#btnRetomar").addEventListener("click", () => {
+  if(S.capturando && casosDe(S.test) > 0) arrancarCaptura();
+  else mostrarSeleccion();
+});
+
+// Al volver a la app (pantalla bloqueada, cambio de app) la cámara puede haber muerto
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "visible" && S.capturando && !camaraViva()) iniciarCamara();
+});
+
+$("#btnIniciar").addEventListener("click", () => pedirCasos("iniciar"));
+$("#btnConfirmarCasos").addEventListener("click", confirmarCasos);
+$("#btnCancelarCasos").addEventListener("click", () => $("#modalCasos").classList.add("oculto"));
+
+$("#btnFinalizar").addEventListener("click", () => pedirGuardado(abrirFinal));
+$("#btnGuardarPend").addEventListener("click", guardarPendientes);
+$("#btnGuardarPendLista").addEventListener("click", guardarPendientes);
+$("#btnGuardarAhora").addEventListener("click", () => {
+  guardarPendientes().then(ok => { if(ok) seguirTrasGuardado(); });
+});
+$("#btnSeguirSinGuardar").addEventListener("click", seguirTrasGuardado);
+$("#btnConfirmarFinal").addEventListener("click", confirmarFinal);
+$("#btnCancelarFinal").addEventListener("click", () => $("#modalFinal").classList.add("oculto"));
+$("#btnVolverLista").addEventListener("click", mostrarSeleccion);
+$("#btnNuevoProtocolo").addEventListener("click", () => $("#btnReiniciar").click());
+
+// Tocar fuera de un modal lo cierra: nada se confirma sin tocar su botón
+document.querySelectorAll(".modal").forEach(m => {
+  m.addEventListener("click", e => { if(e.target === m) m.classList.add("oculto"); });
+});
+$("#inpCasos").addEventListener("keydown", e => { if(e.key === "Enter") confirmarCasos(); });
+
+$("#btnDetener").addEventListener("click", detenerCaptura);
+$("#btnEditarCasos").addEventListener("click", () => pedirCasos("editar"));
+$("#obturador").addEventListener("click", sacarFoto);
+$("#fileCam").addEventListener("change", e => fotoDesdeArchivo(e.target.files[0]));
+$("#btnAnterior").addEventListener("click", () => irACaso(S.caso - 1));
+$("#btnSiguiente").addEventListener("click", () => irACaso(S.caso + 1));
+
+$("#btnAjustes").addEventListener("click", () => {
+  $("#selGuardado").value = S.guardado;
+  $("#inpTotalTests").value = S.totalTests;
+  $("#ajustes").classList.remove("oculto");
+});
+$("#btnCerrarAjustes").addEventListener("click", () => {
+  const n = parseInt($("#inpTotalTests").value, 10);
+  if(n >= 1 && n <= 999) S.totalTests = n;
+  const modoPrevio = S.guardado;
+  S.guardado = $("#selGuardado").value;
+  if(S.test > S.totalTests) S.test = S.totalTests;
+  guardarEstado();
+  $("#ajustes").classList.add("oculto");
+
+  // Si sale del modo iPhone con fotos en cola, que no queden atrapadas
+  if(modoPrevio === "compartir" && S.guardado !== "compartir" && pendientes.length){
+    const lote = pendientes.slice();
+    lote.forEach(p => descargar(p.blob, p.nombre));
+    vaciarPendientes();
+    avisar(lote.length + " fotos descargadas");
+  }
+  pintarPendientes();
+  pintarListaTests();
+});
+$("#btnReiniciar").addEventListener("click", () => {
+  if(!confirm("¿Empezar un protocolo nuevo? Se reinician los tests, los casos y los contadores.\n\nLas fotos ya guardadas en el teléfono no se tocan.")) return;
+  try{ localStorage.removeItem(CLAVE); }catch(e){}
+  location.reload();
+});
+
+/* =======================================================================
+   Arranque
+   ======================================================================= */
+if(cargarEstado()){
+  $("#cantTests").value = S.totalTests;
+  const btn = $("#btnRetomar");
+  btn.textContent = S.capturando && casosDe(S.test) > 0
+    ? "Retomar en Test " + S.test + " - Prueba " + S.caso
+    : "Retomar (Test " + S.test + " de " + S.totalTests + ")";
+  btn.classList.remove("oculto");
+}
+
+recuperarPendientes();
+
+if("serviceWorker" in navigator && window.isSecureContext && location.protocol !== "file:"){
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+})();
+</script>
+</body>
+</html>
