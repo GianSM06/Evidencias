@@ -283,6 +283,8 @@
   <label for="cantTests">¿Cuántos tests tiene el protocolo?</label>
   <input id="cantTests" class="campo" type="number" inputmode="numeric" min="1" max="999" value="10">
 
+  <p class="nota" style="margin:14px 0 0; text-align:center">Versión <b id="verInicio">—</b></p>
+
   <button id="btnEmpezar" class="btn">Cargar los tests</button>
   <button id="btnRetomar" class="btn sec oculto">Retomar donde quedé</button>
 
@@ -467,6 +469,8 @@
       <input id="inpTotalTests" class="campo" type="number" inputmode="numeric" min="1" max="999">
       <small>Podés ampliarla si el protocolo tenía más tests de los que cargaste.</small>
     </div>
+
+    <p class="ayuda" style="margin:0">Versión instalada: <b id="verAjustes">—</b></p>
 
     <button id="btnCerrarAjustes" class="btn">Listo</button>
     <button id="btnReiniciar" class="btn sec">Empezar un protocolo nuevo</button>
@@ -1530,6 +1534,18 @@ if(cargarEstado()){
     : "Retomar (Test " + S.test + " de " + S.totalTests + ")";
   btn.classList.remove("oculto");
 }
+
+/* Se muestra en pantalla para saber sin adivinar qué versión tiene cada teléfono.
+   Subir este número junto con el CACHE de sw.js en cada cambio. */
+const VERSION = "v9";
+$("#verInicio").textContent = VERSION;
+$("#verAjustes").textContent = VERSION;
+
+/* Al instalarse, Android congela la orientación que decía el manifest en ese
+   momento. Esto libera el bloqueo aunque el paquete instalado todavía sea viejo. */
+try{
+  if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+}catch(e){}
 
 recuperarPendientes();
 
