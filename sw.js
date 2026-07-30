@@ -1,5 +1,7 @@
 /* Service worker: guarda la app para que funcione sin internet en planta. */
-const CACHE = "evidencias-v1";
+/* Subí este número cada vez que cambies index.html, o los teléfonos que ya
+   tienen la app instalada van a seguir mostrando la versión vieja. */
+const CACHE = "evidencias-v6";
 const ARCHIVOS = ["./", "./index.html", "./manifest.webmanifest", "./icono.svg"];
 
 self.addEventListener("install", e => {

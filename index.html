@@ -133,6 +133,11 @@
     font-size:13.5px; font-weight:700; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis;
   }
+  #btnLente{
+    position:absolute; top:9px; right:9px; z-index:5;
+    background:rgba(0,0,0,.62); border:1px solid rgba(255,255,255,.28); color:#fff;
+    border-radius:10px; padding:7px 11px; font-size:12px; font-weight:700; cursor:pointer;
+  }
   #flash{position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none}
   #flash.on{animation:fl .28s ease-out}
   @keyframes fl{from{opacity:.85}to{opacity:0}}
@@ -144,8 +149,31 @@
 
   #filaTira{
     display:flex; align-items:center; gap:10px; background:var(--panel);
-    border-top:1px solid var(--line); padding-right:12px;
+    border-top:1px solid var(--line); padding-right:12px; position:relative;
   }
+  .mini{position:relative; flex:none}
+  .mini img{
+    width:44px; height:44px; border-radius:7px; object-fit:cover;
+    border:1px solid var(--line); display:block;
+  }
+  .mini.sel img{outline:3px solid var(--acc); outline-offset:-2px}
+  .mini .x{
+    position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%;
+    background:var(--stop2); color:#fff; border:1.5px solid var(--panel);
+    font-size:13px; line-height:17px; text-align:center; cursor:pointer; font-weight:700;
+  }
+  /* barra de selección: va encima de la tira, sin alterar el alto de la fila */
+  #barraSel{
+    position:absolute; inset:0; background:var(--panel); z-index:6;
+    display:flex; align-items:center; gap:8px; padding:0 12px;
+  }
+  #barraSel #txtSel{flex:1; font-size:13px; font-weight:600; color:var(--tx2)}
+  #barraSel button{
+    border:1px solid var(--line); background:var(--panel2); color:var(--tx);
+    border-radius:9px; padding:8px 11px; font-size:12.5px; font-weight:700; cursor:pointer;
+  }
+  #barraSel #btnBorrarSel{background:var(--stop); border-color:var(--stop2); color:#fff}
+  #barraSel #btnMoverSel{background:var(--acc); border-color:var(--acc); color:#fff}
   #tira{
     flex:1; min-width:0; display:flex; gap:7px; padding:9px 12px; overflow-x:auto;
     min-height:62px; align-items:center;
@@ -178,6 +206,49 @@
   }
   #obturador:active{transform:scale(.93)}
   #obturador:disabled{opacity:.45}
+
+  /* ---------- Horizontal: los controles pasan al costado ----------
+     Al fotografiar pantallas se usa mucho el apaisado. Si la botonera queda
+     abajo, el visor pierde casi la mitad del alto útil. En una columna a la
+     derecha, la imagen en vivo se queda con todo el espacio. */
+  @media (orientation: landscape) and (max-height: 620px){
+    #app{
+      display:grid;
+      grid-template-columns:1fr 112px;
+      grid-template-rows:auto 1fr auto;
+      grid-template-areas:
+        "cab   ctrl"
+        "visor ctrl"
+        "tira  ctrl";
+      padding-left:env(safe-area-inset-left);
+      padding-right:env(safe-area-inset-right);
+    }
+    #cab{grid-area:cab; padding:calc(5px + var(--sat)) 11px 5px}
+    #tituloTest{font-size:16px}
+    #subTest{font-size:11px; margin-top:1px}
+    #btnEditarCasos{font-size:10.5px}
+    #btnDetener{padding:8px 11px; font-size:12.5px}
+
+    #visor{grid-area:visor}
+    #marcaAgua{padding:5px 11px}
+    #marcaAgua .l1{font-size:12px}
+
+    #filaTira{grid-area:tira; padding-right:8px}
+    #tira{min-height:44px; padding:5px 10px}
+    #tira img{width:34px; height:34px}
+    #tira:empty::after{content:"Fotos de esta prueba"}
+    #btnGuardarPend{padding:7px 10px; font-size:11px}
+    #btnGuardarPend b{font-size:14px}
+
+    #controles{
+      grid-area:ctrl; flex-direction:column; justify-content:center; gap:9px;
+      border-top:none; border-left:1px solid var(--line);
+      padding:8px 9px calc(8px + var(--sab));
+    }
+    .nav{flex:none; width:100%; padding:9px 3px; font-size:11.5px}
+    .nav small{font-size:10px; margin-top:1px}
+    #obturador{width:62px; height:62px; border-width:4px; align-self:center}
+  }
 
   /* ---------- Avisos y modales ---------- */
   #aviso{
@@ -221,9 +292,13 @@
   </p>
 
   <p class="nota">
-    <b>Android:</b> cada foto baja a <b>Descargas</b> y la galería la muestra en el álbum “Download”.
-    La primera vez el teléfono pregunta si permitís descargar varios archivos: aceptá.<br><br>
-    <b>iPhone:</b> se abre el menú de compartir y elegís <b>“Guardar imagen”</b> para que vaya al Carrete.
+    Las fotos se acumulan y se guardan todas juntas al cerrar cada test. Hasta ese momento
+    podés borrarlas o moverlas de test, y la numeración se corrige sola.<br><br>
+    <b>Android:</b> bajan a <b>Descargas</b>. La primera vez el teléfono pregunta si permitís
+    descargar varios archivos: aceptá.<br><br>
+    <b>iPhone:</b> en el menú elegí <b>“Guardar en Archivos”</b>, no “Guardar imagen”:
+    Archivos conserva los nombres (<i>Test_03_Prueba_02_Imagen_05</i>) y Fotos los
+    reemplaza por <i>IMG_0042</i>.
   </p>
 </section>
 
@@ -271,6 +346,7 @@
     <div id="marcaAgua">
       <div class="l1" id="maL1">Test 1 - Prueba 1 - Imagen 1</div>
     </div>
+    <button id="btnLente" title="Elegir cámara">⚙ Lente</button>
     <div id="flash"></div>
     <div id="sinCamara" class="oculto">
       <div class="big">📷</div>
@@ -281,6 +357,12 @@
   <div id="filaTira">
     <div id="tira"></div>
     <button id="btnGuardarPend" class="oculto">Guardar<b>0</b></button>
+    <div id="barraSel" class="oculto">
+      <span id="txtSel">0 seleccionadas</span>
+      <button id="btnMoverSel">Mover</button>
+      <button id="btnBorrarSel">Borrar</button>
+      <button id="btnCancelSel">✕</button>
+    </div>
   </div>
 
   <div id="controles">
@@ -312,6 +394,45 @@
     <button id="btnGuardarAhora" class="btn guardar">Guardar ahora</button>
     <button id="btnSeguirSinGuardar" class="btn sec">Seguir sin guardar</button>
     <p class="ayuda" style="margin:14px 0 0">Si seguís sin guardar, las fotos quedan en la app y podés guardarlas después con el botón naranja. No se pierden.</p>
+  </div>
+</section>
+
+<!-- ============ MODAL: mover fotos a otro test/prueba ============ -->
+<section id="modalMover" class="modal oculto">
+  <div class="caja">
+    <h2>Mover fotos</h2>
+    <p class="ayuda" id="txtMover">—</p>
+    <div class="fila">
+      <span>Test de destino</span>
+      <input id="inpMoverTest" class="campo" type="number" inputmode="numeric" min="1" max="999">
+    </div>
+    <div class="fila">
+      <span>Prueba de destino</span>
+      <input id="inpMoverCaso" class="campo" type="number" inputmode="numeric" min="1" max="999">
+    </div>
+    <button id="btnConfirmarMover" class="btn verde">Mover</button>
+    <button id="btnCancelarMover" class="btn sec">Cancelar</button>
+  </div>
+</section>
+
+<!-- ============ MODAL: elegir cámara ============ -->
+<section id="modalLente" class="modal oculto">
+  <div class="caja">
+    <h2>Elegí la cámara</h2>
+    <p class="ayuda">Muchos teléfonos tienen varias cámaras traseras y el navegador no avisa cuál es cuál. Si el encuadre sale demasiado abierto, estás en el gran angular: probá otra y mirá el visor hasta encontrar la correcta. Queda recordada.</p>
+    <div id="listaLentes"></div>
+    <button id="btnCerrarLente" class="btn">Listo</button>
+  </div>
+</section>
+
+<!-- ============ MODAL: confirmar que el guardado salió bien ============ -->
+<section id="modalConfirma" class="modal oculto">
+  <div class="caja">
+    <h2>¿Se guardaron?</h2>
+    <p class="ayuda" id="txtConfirma">—</p>
+    <button id="btnSiSeGuardaron" class="btn verde">Sí, ya están guardadas</button>
+    <button id="btnNoSeGuardaron" class="btn sec">No, siguen pendientes</button>
+    <p class="ayuda" style="margin:14px 0 0">iOS no siempre avisa si el guardado salió bien, así que preferimos preguntarte antes de sacarlas de la lista. Si decís que sí y no estaban, no hay forma de recuperarlas desde la app.</p>
   </div>
 </section>
 
@@ -386,6 +507,7 @@ const S = {
   caso: 1,            // caso de prueba dentro del test
   capturando: false,  // true entre "Iniciar" y "Detener"
   finalizado: false,  // true tras confirmar "Finalizar protocolo"
+  camaraId: null,     // cámara trasera elegida a mano (null = la que decida el sistema)
   casos: {},          // { test: cantidad de casos }
   ultimoCaso: {},     // { test: último caso trabajado }
   conteos: {},        // { test: { caso: cantidad de imágenes } }
@@ -403,12 +525,24 @@ function cargarEstado(){
   return false;
 }
 
-const casosDe    = t => S.casos[t] || 0;
-const fotosDe    = (t,c) => (S.conteos[t] && S.conteos[t][c]) || 0;
-function sumarFoto(t,c,n){ if(!S.conteos[t]) S.conteos[t] = {}; S.conteos[t][c] = n; }
+const casosDe = t => S.casos[t] || 0;
+
+/* S.conteos guarda solo las fotos YA exportadas al teléfono: esas quedan
+   congeladas, no se pueden renumerar ni borrar desde la app.
+   Las que todavía están en la cola se cuentan aparte y sí se pueden editar. */
+const exportadasDe  = (t,c) => (S.conteos[t] && S.conteos[t][c]) || 0;
+const enColaDe      = (t,c) => pendientes.filter(p => p.test === t && p.caso === c).length;
+const fotosDe       = (t,c) => exportadasDe(t,c) + enColaDe(t,c);
+
+function sumarExportadas(t,c,n){
+  if(!S.conteos[t]) S.conteos[t] = {};
+  S.conteos[t][c] = exportadasDe(t,c) + n;
+}
 function fotosDelTest(t){
-  const m = S.conteos[t]; let s = 0;
+  let s = 0;
+  const m = S.conteos[t];
   if(m) for(const k in m) s += m[k];
+  s += pendientes.filter(p => p.test === t).length;
   return s;
 }
 
@@ -492,6 +626,37 @@ function estamparFoto(fuente, anchoOrig, altoOrig, linea1){
   return dataURLaBlob(cv.toDataURL("image/jpeg", 0.92));
 }
 
+/* La foto sin estampar, solo escalada. En modo iPhone se guarda así y el pie
+   se le pone recién al exportar, con el número que le corresponda EN ESE
+   MOMENTO. Es lo que permite borrar y mover fotos sin que queden mal numeradas. */
+function fotoCruda(fuente, anchoOrig, altoOrig){
+  let W = anchoOrig, H = altoOrig;
+  if(W > ANCHO_MAX){ H = Math.round(H * ANCHO_MAX / W); W = ANCHO_MAX; }
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  cv.getContext("2d").drawImage(fuente, 0, 0, W, H);
+  return dataURLaBlob(cv.toDataURL("image/jpeg", 0.92));
+}
+
+async function estamparDesdeBlob(blob, linea1){
+  let fuente, w, h;
+  if(window.createImageBitmap){
+    fuente = await createImageBitmap(blob);
+    w = fuente.width; h = fuente.height;
+  }else{
+    fuente = await new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = rej;
+      im.src = URL.createObjectURL(blob);
+    });
+    w = fuente.naturalWidth; h = fuente.naturalHeight;
+  }
+  const salida = estamparFoto(fuente, w, h, linea1);
+  if(fuente.close) fuente.close();
+  return salida;
+}
+
 /* =======================================================================
    Guardado en el teléfono
    ======================================================================= */
@@ -506,24 +671,6 @@ function descargar(blob, nombre){
   setTimeout(() => URL.revokeObjectURL(url), 20000);
 }
 
-function guardarFoto(blob, nombre){
-  if(S.guardado === "compartir"){
-    try{
-      const archivo = new File([blob], nombre, { type: "image/jpeg" });
-      if(navigator.canShare && navigator.canShare({ files: [archivo] })){
-        return navigator.share({ files: [archivo] })
-          .then(() => true)
-          .catch(e => {
-            if(e && e.name === "AbortError") return false;
-            descargar(blob, nombre);
-            return true;
-          });
-      }
-    }catch(e){ /* cae a la descarga */ }
-  }
-  descargar(blob, nombre);
-  return Promise.resolve(true);
-}
 
 /* =======================================================================
    Cola de fotos pendientes (modo iPhone)
@@ -558,18 +705,45 @@ function conTienda(modo, fn){
   }));
 }
 
-async function encolar(blob, nombre){
-  const reg = { nombre: nombre, blob: blob, ts: Date.now() };
+async function encolar(blob){
+  const reg = { blob: blob, test: S.test, caso: S.caso, ts: Date.now() };
   try{ reg.id = await conTienda("readwrite", t => t.add(reg)); }
-  catch(e){ reg.id = "mem-" + Date.now(); }     // sin IndexedDB, queda solo en memoria
+  catch(e){ reg.id = "mem-" + Date.now() + "-" + Math.random(); }
   pendientes.push(reg);
   pintarPendientes();
 }
 
-async function vaciarPendientes(){
-  pendientes = [];
-  try{ await conTienda("readwrite", t => t.clear()); }catch(e){}
+const sinUrl = p => ({ id: p.id, blob: p.blob, test: p.test, caso: p.caso, ts: p.ts });
+
+async function borrarFotos(ids){
+  const lote = pendientes.filter(p => ids.indexOf(p.id) !== -1);
+  if(!lote.length) return;
+  if(!confirm(lote.length === 1
+      ? "¿Borrar esta foto?\n\nLas siguientes se renumeran solas."
+      : "¿Borrar " + lote.length + " fotos?\n\nLas siguientes se renumeran solas.")) return;
+  lote.forEach(p => { if(p.url) URL.revokeObjectURL(p.url); });
+  await borrarLote(lote);
+  salirSeleccion();
+  pintarCaptura();
+  pintarTira();
+  avisar(lote.length + (lote.length === 1 ? " foto borrada" : " fotos borradas"));
+}
+
+async function moverFotos(ids, destTest, destCaso){
+  const lote = pendientes.filter(p => ids.indexOf(p.id) !== -1);
+  if(!lote.length) return;
+  lote.forEach(p => { p.test = destTest; p.caso = destCaso; });
+  try{ await conTienda("readwrite", t => { lote.forEach(p => t.put(sinUrl(p))); }); }catch(e){}
+
+  // si el test de destino todavía no tenía casos declarados, se ajusta
+  if(casosDe(destTest) < destCaso){ S.casos[destTest] = destCaso; }
+  guardarEstado();
+  salirSeleccion();
+  pintarCaptura();
+  pintarTira();
   pintarPendientes();
+  avisar(lote.length + (lote.length === 1 ? " foto movida" : " fotos movidas") +
+         " a Test " + destTest + " - Prueba " + destCaso);
 }
 
 async function recuperarPendientes(){
@@ -583,56 +757,153 @@ async function recuperarPendientes(){
   }catch(e){}
 }
 
-/* Devuelve true si se guardaron. El share sale dentro del gesto del usuario:
-   los blobs ya están en memoria, así que no hay ningún await antes. */
-function guardarPendientes(){
-  if(!pendientes.length) return Promise.resolve(true);
-  const lote = pendientes.slice();
-  const archivos = lote.map(p => new File([p.blob], p.nombre, { type: "image/jpeg" }));
+/* Saca de la cola SOLO las fotos de este lote, y verifica que el borrado
+   haya quedado grabado. Si no se verifica, reintenta una vez: un borrado a
+   medias es lo que hacía reaparecer fotos ya guardadas y generaba duplicados. */
+async function borrarLote(lote){
+  const ids = lote.map(p => p.id);
+  pendientes = pendientes.filter(p => ids.indexOf(p.id) === -1);
+  pintarPendientes();
+  for(let intento = 0; intento < 2; intento++){
+    try{
+      await conTienda("readwrite", t => { ids.forEach(id => t.delete(id)); });
+      const quedan = await conTienda("readonly", t => t.getAll());
+      if(!quedan || !quedan.some(r => ids.indexOf(r.id) !== -1)) return;
+    }catch(e){ return; }
+  }
+}
 
-  if(!(navigator.canShare && navigator.canShare({ files: archivos }))){
-    lote.forEach(p => descargar(p.blob, p.nombre));         // respaldo: descarga suelta
-    return vaciarPendientes().then(() => {
-      avisar(lote.length + " fotos descargadas");
-      return true;
-    });
+/* Pregunta explícita después del menú de compartir.
+   iOS no informa de forma confiable si el guardado salió bien: a veces avisa
+   "cancelado" aunque las fotos se hayan guardado. Confiar en ese aviso era lo
+   que dejaba fotos ya guardadas en la cola. Lo único confiable es el usuario. */
+let resolverConfirma = null;
+
+function confirmarGuardado(n){
+  return new Promise(res => {
+    resolverConfirma = res;
+    $("#txtConfirma").textContent =
+      "Se enviaron " + n + (n === 1 ? " foto" : " fotos") +
+      " al menú de guardado. ¿Llegaron bien al teléfono?";
+    $("#modalConfirma").classList.remove("oculto");
+  });
+}
+
+function responderConfirma(ok){
+  $("#modalConfirma").classList.add("oculto");
+  const f = resolverConfirma;
+  resolverConfirma = null;
+  if(f) f(ok);
+}
+
+/* Estampa todas las pendientes con la numeración que tienen AHORA y deja los
+   archivos listos en memoria. Es asincrónico (hay que decodificar cada imagen),
+   por eso corre ANTES de mostrar el botón de guardar: así el share posterior
+   sale dentro del gesto del usuario, que es lo que exige Safari. */
+let loteListo = null;
+
+async function prepararLote(){
+  const orden = pendientes.slice().sort((a, b) =>
+    (a.test - b.test) || (a.caso - b.caso) || (a.ts - b.ts));
+
+  const contador = {};
+  const archivos = [];
+  for(let i = 0; i < orden.length; i++){
+    const p = orden[i];
+    const clave = p.test + "/" + p.caso;
+    if(contador[clave] === undefined) contador[clave] = exportadasDe(p.test, p.caso);
+    const n = ++contador[clave];
+
+    const pie = "Test " + p.test + " - Prueba " + p.caso + " - Imagen " + n;
+    const nombre = "Test_" + dosDig(p.test) + "_Prueba_" + dosDig(p.caso) +
+                   "_Imagen_" + dosDig(n) + ".jpg";
+    const estampada = await estamparDesdeBlob(p.blob, pie);
+    archivos.push(new File([estampada], nombre, { type: "image/jpeg" }));
+  }
+  loteListo = { registros: orden, archivos: archivos };
+  return loteListo;
+}
+
+function anotarExportadas(registros){
+  const porClave = {};
+  registros.forEach(p => {
+    const k = p.test + "/" + p.caso;
+    porClave[k] = (porClave[k] || 0) + 1;
+  });
+  Object.keys(porClave).forEach(k => {
+    const partes = k.split("/");
+    sumarExportadas(Number(partes[0]), Number(partes[1]), porClave[k]);
+  });
+  guardarEstado();
+}
+
+/* Devuelve true si el lote quedó guardado. El share sale dentro del gesto del
+   usuario: los archivos ya están estampados en memoria, sin await antes. */
+function cerrarLote(lote){
+  anotarExportadas(lote);
+  return borrarLote(lote).then(() => {
+    avisar(lote.length + (lote.length === 1 ? " foto guardada" : " fotos guardadas"));
+    return true;
+  });
+}
+
+function guardarPendientes(){
+  if(!loteListo || !loteListo.archivos.length) return Promise.resolve(true);
+  const lote = loteListo.registros;
+  const archivos = loteListo.archivos;
+
+  const porMenu = S.guardado === "compartir" &&
+                  navigator.canShare && navigator.canShare({ files: archivos });
+
+  if(!porMenu){                                   // Android / PC: descarga directa
+    archivos.forEach(a => descargar(a, a.name));
+    return cerrarLote(lote);
   }
 
   return navigator.share({ files: archivos })
-    .then(() => vaciarPendientes().then(() => {
-      avisar(lote.length + (lote.length === 1 ? " foto guardada" : " fotos guardadas"));
-      return true;
-    }))
-    .catch(e => {
-      if(e && e.name === "AbortError") return false;        // cerró el menú: siguen en cola
-      avisar("No se pudieron guardar. Probá guardando de a menos.", true);
-      return false;
+    .then(() => ({ ok: true }), e => ({ ok: false, aborto: e && e.name === "AbortError" }))
+    .then(res => {
+      // Si iOS confirma, se limpia solo. Si dice "cancelado" no alcanza para
+      // creerle: por Fotos avisa cancelación aunque las haya guardado, y ahí
+      // borrar la cola a ciegas dejaba fotos duplicadas. En ese caso, preguntamos.
+      if(res.ok) return cerrarLote(lote);
+      return confirmarGuardado(lote.length).then(ok => {
+        if(ok) return cerrarLote(lote);
+        avisar("Siguen pendientes", true);
+        return false;
+      });
     });
 }
 
 function pintarPendientes(){
   const n = pendientes.length;
-  const hay = n > 0 && S.guardado === "compartir";
 
   const bCap = $("#btnGuardarPend");
-  bCap.classList.toggle("oculto", !hay);
+  bCap.classList.toggle("oculto", n === 0);
   bCap.innerHTML = "Guardar<b>" + n + "</b>";
 
   const bSel = $("#btnGuardarPendLista");
-  bSel.classList.toggle("oculto", !hay);
-  bSel.textContent = "Guardar " + n + (n === 1 ? " foto" : " fotos") + " en Fotos";
+  bSel.classList.toggle("oculto", n === 0);
+  bSel.textContent = "Guardar " + n + (n === 1 ? " foto" : " fotos") +
+                     (S.guardado === "compartir" ? " en el teléfono" : " en Descargas");
 }
 
 /* Antes de detener o finalizar, ofrece guardar lo que quedó en la cola. */
 let trasGuardar = null;
 
-function pedirGuardado(continuar){
-  if(S.guardado !== "compartir" || !pendientes.length){ continuar(); return; }
+async function pedirGuardado(continuar){
+  if(!pendientes.length){ continuar(); return; }
   trasGuardar = continuar;
   const n = pendientes.length;
+
+  // se estampan acá, con la numeración final, antes de ofrecer el botón
+  avisar("Preparando " + n + (n === 1 ? " foto…" : " fotos…"));
+  try{ await prepararLote(); }
+  catch(e){ avisar("No se pudieron preparar las fotos", true); return; }
+
   $("#txtPendientes").textContent =
     n + (n === 1 ? " foto todavía no está" : " fotos todavía no están") +
-    " en el Carrete del teléfono.";
+    " guardada" + (n === 1 ? "" : "s") + " en el teléfono.";
   $("#btnGuardarAhora").textContent = "Guardar " + n + (n === 1 ? " foto" : " fotos") + " ahora";
   $("#modalPendientes").classList.remove("oculto");
 }
@@ -663,21 +934,66 @@ async function iniciarCamara(){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.isSecureContext){
     return modoCamaraNativa("El navegador no da acceso directo a la cámara acá.");
   }
+  // Si ya elegiste una cámara, se usa esa. Si no, la trasera que decida el sistema
+  // (en varios Android eso cae en el gran angular, por eso existe el selector).
+  const pedido = { width: { ideal: 3840 }, height: { ideal: 2160 } };
+  if(S.camaraId) pedido.deviceId = { exact: S.camaraId };
+  else pedido.facingMode = { ideal: "environment" };
+
   try{
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } },
-      audio: false
-    });
+    stream = await navigator.mediaDevices.getUserMedia({ video: pedido, audio: false });
     video.srcObject = stream;
     await video.play().catch(() => {});
     hayCamaraViva = true;
     $("#sinCamara").classList.add("oculto");
     $("#video").classList.remove("oculto");
+    $("#btnLente").classList.remove("oculto");
   }catch(e){
+    // la cámara guardada puede no existir más (otro teléfono, otro navegador)
+    if(S.camaraId){
+      S.camaraId = null;
+      guardarEstado();
+      return iniciarCamara();
+    }
     modoCamaraNativa(e && e.name === "NotAllowedError"
       ? "No se dio permiso de cámara."
       : "No se pudo abrir la cámara en vivo.");
   }
+}
+
+async function abrirSelectorLente(){
+  const cont = $("#listaLentes");
+  let camaras = [];
+  try{
+    const todos = await navigator.mediaDevices.enumerateDevices();
+    camaras = todos.filter(d => d.kind === "videoinput");
+  }catch(e){}
+
+  cont.innerHTML = "";
+  if(camaras.length < 2){
+    cont.innerHTML = '<p class="ayuda">Este equipo expone ' +
+      (camaras.length === 1 ? "una sola cámara" : "ninguna cámara") +
+      ' al navegador, así que no hay entre cuáles elegir.</p>';
+  }
+  camaras.forEach((c, i) => {
+    const elegida = c.deviceId === S.camaraId;
+    const b = document.createElement("button");
+    b.className = "tarjeta" + (elegida ? " activa" : "");
+    b.innerHTML =
+      '<span class="num">' + (i + 1) + '</span>' +
+      '<span class="d"><b>' + (c.label || ("Cámara " + (i + 1))) + '</b>' +
+      '<span>' + (elegida ? "En uso" : "Tocar para probarla") + '</span></span>';
+    b.addEventListener("click", async () => {
+      S.camaraId = c.deviceId;
+      guardarEstado();
+      detenerCamara();
+      await iniciarCamara();
+      abrirSelectorLente();          // repinta para marcar cuál quedó activa
+    });
+    cont.appendChild(b);
+  });
+
+  $("#modalLente").classList.remove("oculto");
 }
 
 function detenerCamara(){
@@ -688,6 +1004,7 @@ function detenerCamara(){
 function modoCamaraNativa(motivo){
   hayCamaraViva = false;
   $("#video").classList.add("oculto");
+  $("#btnLente").classList.add("oculto");   // sin vista en vivo no hay lente que elegir
   $("#sinCamara").classList.remove("oculto");
   $("#sinCamaraTx").innerHTML =
     motivo + "<br><br>Se usa la <b>cámara del sistema</b>: tocá el botón blanco, sacá la foto y volvé.";
@@ -913,6 +1230,7 @@ function irACaso(n){
   if(destino === S.caso) return;
   S.caso = destino;
   S.ultimoCaso[S.test] = destino;
+  salirSeleccion();          // la selección era de la prueba anterior
   guardarEstado();
   pintarCaptura();
   pintarTira();
@@ -952,7 +1270,7 @@ function sacarFoto(){
   let t, blob;
   try{
     t = textosPie();
-    blob = estamparFoto(video, video.videoWidth, video.videoHeight, t.l1);
+    blob = fotoCruda(video, video.videoWidth, video.videoHeight);   // se estampa al exportar
   }catch(e){
     avisar("No se pudo sacar la foto", true);
     ocupado = false; $("#obturador").disabled = false;
@@ -984,7 +1302,7 @@ async function fotoDesdeArchivo(archivo){
       w = fuente.naturalWidth; h = fuente.naturalHeight;
     }
     const t = textosPie();
-    const blob = estamparFoto(fuente, w, h, t.l1);
+    const blob = fotoCruda(fuente, w, h);
     if(fuente.close) fuente.close();
     await registrarFoto(blob, t);
   }catch(e){
@@ -997,47 +1315,86 @@ async function fotoDesdeArchivo(archivo){
 }
 
 async function registrarFoto(blob, t){
-  if(S.guardado === "compartir"){
-    await encolar(blob, t.archivo);          // se guardan todas juntas más tarde
-  }else{
-    const ok = await guardarFoto(blob, t.archivo);
-    if(!ok){ avisar("Foto descartada", true); return; }
-  }
+  await encolar(blob);           // cruda: se estampa y numera al exportar
 
-  sumarFoto(S.test, S.caso, t.nImagen);
   S.finalizado = false;          // si volviste a sacar fotos, el protocolo sigue abierto
   guardarEstado();
-  agregarMiniatura(blob, t.archivo);
   pintarCaptura();
+  pintarTira();
   avisar("Test " + S.test + " · Prueba " + S.caso + " · Imagen " + t.nImagen);
 }
 
 /* =======================================================================
    Miniaturas del caso en curso
    ======================================================================= */
-const miniaturas = {};                       // "test/caso" -> [{url, nombre, blob}]
-const claveMini = () => S.test + "/" + S.caso;
 
-function agregarMiniatura(blob, nombre){
-  const k = claveMini();
-  if(!miniaturas[k]) miniaturas[k] = [];
-  miniaturas[k].push({ url: URL.createObjectURL(blob), nombre: nombre, blob: blob });
+/* Selección múltiple: solo en modo iPhone, donde las fotos todavía no se
+   escribieron en el teléfono y por lo tanto se pueden borrar o mover. */
+let modoSeleccion = false;
+let seleccion = [];
+
+function entrarSeleccion(id){
+  modoSeleccion = true;
+  if(seleccion.indexOf(id) === -1) seleccion.push(id);
   pintarTira();
+  pintarBarraSel();
+}
+function alternarSeleccion(id){
+  const i = seleccion.indexOf(id);
+  if(i === -1) seleccion.push(id); else seleccion.splice(i, 1);
+  if(!seleccion.length) return salirSeleccion();
+  pintarTira();
+  pintarBarraSel();
+}
+function salirSeleccion(){
+  modoSeleccion = false;
+  seleccion = [];
+  $("#barraSel").classList.add("oculto");
+  pintarTira();
+}
+function pintarBarraSel(){
+  $("#barraSel").classList.toggle("oculto", !modoSeleccion);
+  $("#txtSel").textContent = seleccion.length +
+    (seleccion.length === 1 ? " seleccionada" : " seleccionadas");
 }
 
 function pintarTira(){
   const tira = $("#tira");
   tira.innerHTML = "";
-  (miniaturas[claveMini()] || []).forEach(f => {
-    const im = document.createElement("img");
-    im.src = f.url;
-    im.title = f.nombre;
-    im.addEventListener("click", () => {
-      guardarFoto(f.blob, f.nombre);
-      avisar("Guardada de nuevo");
+
+  pendientes
+    .filter(p => p.test === S.test && p.caso === S.caso)
+    .sort((a, b) => a.ts - b.ts)
+    .forEach(p => {
+      if(!p.url) p.url = URL.createObjectURL(p.blob);
+      const cont = document.createElement("div");
+      cont.className = "mini" + (seleccion.indexOf(p.id) !== -1 ? " sel" : "");
+
+      const im = document.createElement("img");
+      im.src = p.url;
+      cont.appendChild(im);
+
+      if(!modoSeleccion){
+        const x = document.createElement("span");
+        x.className = "x";
+        x.textContent = "×";
+        x.addEventListener("click", ev => { ev.stopPropagation(); borrarFotos([p.id]); });
+        cont.appendChild(x);
+      }
+
+      let reloj = null;
+      const arrancar = () => { reloj = setTimeout(() => { reloj = null; entrarSeleccion(p.id); }, 450); };
+      const soltar = () => { if(reloj){ clearTimeout(reloj); reloj = null; } };
+      cont.addEventListener("touchstart", arrancar, { passive: true });
+      cont.addEventListener("touchend", soltar);
+      cont.addEventListener("touchmove", soltar);
+      cont.addEventListener("mousedown", arrancar);
+      cont.addEventListener("mouseup", soltar);
+      cont.addEventListener("mouseleave", soltar);
+      cont.addEventListener("click", () => { if(modoSeleccion) alternarSeleccion(p.id); });
+
+      tira.appendChild(cont);
     });
-    tira.appendChild(im);
-  });
   tira.scrollLeft = tira.scrollWidth;
 }
 
@@ -1070,12 +1427,15 @@ $("#btnConfirmarCasos").addEventListener("click", confirmarCasos);
 $("#btnCancelarCasos").addEventListener("click", () => $("#modalCasos").classList.add("oculto"));
 
 $("#btnFinalizar").addEventListener("click", () => pedirGuardado(abrirFinal));
-$("#btnGuardarPend").addEventListener("click", guardarPendientes);
-$("#btnGuardarPendLista").addEventListener("click", guardarPendientes);
+// pasan por pedirGuardado porque antes hay que estampar y numerar el lote
+$("#btnGuardarPend").addEventListener("click", () => pedirGuardado(() => {}));
+$("#btnGuardarPendLista").addEventListener("click", () => pedirGuardado(() => {}));
 $("#btnGuardarAhora").addEventListener("click", () => {
   guardarPendientes().then(ok => { if(ok) seguirTrasGuardado(); });
 });
 $("#btnSeguirSinGuardar").addEventListener("click", seguirTrasGuardado);
+$("#btnSiSeGuardaron").addEventListener("click", () => responderConfirma(true));
+$("#btnNoSeGuardaron").addEventListener("click", () => responderConfirma(false));
 $("#btnConfirmarFinal").addEventListener("click", confirmarFinal);
 $("#btnCancelarFinal").addEventListener("click", () => $("#modalFinal").classList.add("oculto"));
 $("#btnVolverLista").addEventListener("click", mostrarSeleccion);
@@ -1083,10 +1443,38 @@ $("#btnNuevoProtocolo").addEventListener("click", () => $("#btnReiniciar").click
 
 // Tocar fuera de un modal lo cierra: nada se confirma sin tocar su botón
 document.querySelectorAll(".modal").forEach(m => {
-  m.addEventListener("click", e => { if(e.target === m) m.classList.add("oculto"); });
+  m.addEventListener("click", e => {
+    if(e.target !== m) return;
+    // el de confirmación no se cierra sin respuesta: hay una promesa esperándola
+    if(m.id === "modalConfirma"){ responderConfirma(false); return; }
+    m.classList.add("oculto");
+  });
 });
 $("#inpCasos").addEventListener("keydown", e => { if(e.key === "Enter") confirmarCasos(); });
 
+$("#btnCancelSel").addEventListener("click", salirSeleccion);
+$("#btnBorrarSel").addEventListener("click", () => borrarFotos(seleccion.slice()));
+$("#btnMoverSel").addEventListener("click", () => {
+  const n = seleccion.length;
+  $("#txtMover").textContent =
+    "Vas a mover " + n + (n === 1 ? " foto" : " fotos") +
+    ". Se numeran de nuevo en el destino y también en el test del que salen.";
+  $("#inpMoverTest").value = S.test;
+  $("#inpMoverCaso").value = S.caso;
+  $("#modalMover").classList.remove("oculto");
+});
+$("#btnCancelarMover").addEventListener("click", () => $("#modalMover").classList.add("oculto"));
+$("#btnConfirmarMover").addEventListener("click", () => {
+  const t = parseInt($("#inpMoverTest").value, 10);
+  const c = parseInt($("#inpMoverCaso").value, 10);
+  if(!(t >= 1 && t <= S.totalTests)){ avisar("El test tiene que estar entre 1 y " + S.totalTests, true); return; }
+  if(!(c >= 1 && c <= 999)){ avisar("Poné un número de prueba válido", true); return; }
+  $("#modalMover").classList.add("oculto");
+  moverFotos(seleccion.slice(), t, c);
+});
+
+$("#btnLente").addEventListener("click", abrirSelectorLente);
+$("#btnCerrarLente").addEventListener("click", () => $("#modalLente").classList.add("oculto"));
 $("#btnDetener").addEventListener("click", detenerCaptura);
 $("#btnEditarCasos").addEventListener("click", () => pedirCasos("editar"));
 $("#obturador").addEventListener("click", sacarFoto);
@@ -1108,12 +1496,19 @@ $("#btnCerrarAjustes").addEventListener("click", () => {
   guardarEstado();
   $("#ajustes").classList.add("oculto");
 
-  // Si sale del modo iPhone con fotos en cola, que no queden atrapadas
+  // Si sale del modo iPhone con fotos en cola, que no queden atrapadas:
+  // hay que estamparlas antes, porque todavía están crudas.
   if(modoPrevio === "compartir" && S.guardado !== "compartir" && pendientes.length){
-    const lote = pendientes.slice();
-    lote.forEach(p => descargar(p.blob, p.nombre));
-    vaciarPendientes();
-    avisar(lote.length + " fotos descargadas");
+    const n = pendientes.length;
+    avisar("Preparando " + n + (n === 1 ? " foto…" : " fotos…"));
+    prepararLote()
+      .then(listo => {
+        listo.archivos.forEach(a => descargar(a, a.name));
+        anotarExportadas(listo.registros);
+        return borrarLote(listo.registros);
+      })
+      .then(() => avisar(n + " fotos descargadas"))
+      .catch(() => avisar("No se pudieron descargar", true));
   }
   pintarPendientes();
   pintarListaTests();
