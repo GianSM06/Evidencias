@@ -133,11 +133,12 @@
     font-size:13.5px; font-weight:700; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis;
   }
-  #btnLente{
-    position:absolute; top:9px; right:9px; z-index:5;
+  #accionesVisor{position:absolute; top:9px; right:9px; z-index:5; display:flex; gap:7px}
+  #accionesVisor button{
     background:rgba(0,0,0,.62); border:1px solid rgba(255,255,255,.28); color:#fff;
     border-radius:10px; padding:7px 11px; font-size:12px; font-weight:700; cursor:pointer;
   }
+  #btnLado{display:none}          /* solo tiene sentido en horizontal */
   #flash{position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none}
   #flash.on{animation:fl .28s ease-out}
   @keyframes fl{from{opacity:.85}to{opacity:0}}
@@ -245,6 +246,18 @@
       border-top:none; border-left:1px solid var(--line);
       padding:8px 9px calc(8px + var(--sab));
     }
+
+    /* La botonera va del lado del borde inferior del teléfono, o sea el
+       contrario al lente, para que la mano no cruce por delante de la cámara. */
+    #btnLado{display:block}
+    #app.panelIzq{
+      grid-template-columns:112px 1fr;
+      grid-template-areas:
+        "ctrl cab"
+        "ctrl visor"
+        "ctrl tira";
+    }
+    #app.panelIzq #controles{border-left:none; border-right:1px solid var(--line)}
     .nav{flex:none; width:100%; padding:9px 3px; font-size:11.5px}
     .nav small{font-size:10px; margin-top:1px}
     #obturador{width:62px; height:62px; border-width:4px; align-self:center}
@@ -348,7 +361,10 @@
     <div id="marcaAgua">
       <div class="l1" id="maL1">Test 1 - Prueba 1 - Imagen 1</div>
     </div>
-    <button id="btnLente" title="Elegir cámara">⚙ Lente</button>
+    <div id="accionesVisor">
+      <button id="btnLado" title="Pasar los botones al otro lado">⇄</button>
+      <button id="btnLente" title="Elegir cámara">⚙ Lente</button>
+    </div>
     <div id="flash"></div>
     <div id="sinCamara" class="oculto">
       <div class="big">📷</div>
@@ -396,6 +412,16 @@
     <button id="btnGuardarAhora" class="btn guardar">Guardar ahora</button>
     <button id="btnSeguirSinGuardar" class="btn sec">Seguir sin guardar</button>
     <p class="ayuda" style="margin:14px 0 0">Si seguís sin guardar, las fotos quedan en la app y podés guardarlas después con el botón naranja. No se pierden.</p>
+  </div>
+</section>
+
+<!-- ============ MODAL: preguntar (reemplaza al confirm del sistema) ============ -->
+<section id="modalPregunta" class="modal oculto">
+  <div class="caja">
+    <h2 id="tituloPregunta">—</h2>
+    <p class="ayuda" id="textoPregunta">—</p>
+    <button id="btnPreguntaSi" class="btn">Sí</button>
+    <button id="btnPreguntaNo" class="btn sec">Cancelar</button>
   </div>
 </section>
 
@@ -512,6 +538,7 @@ const S = {
   capturando: false,  // true entre "Iniciar" y "Detener"
   finalizado: false,  // true tras confirmar "Finalizar protocolo"
   camaraId: null,     // cámara trasera elegida a mano (null = la que decida el sistema)
+  invertirLado: false,// da vuelta de qué lado va la botonera en horizontal
   casos: {},          // { test: cantidad de casos }
   ultimoCaso: {},     // { test: último caso trabajado }
   conteos: {},        // { test: { caso: cantidad de imágenes } }
@@ -722,9 +749,11 @@ const sinUrl = p => ({ id: p.id, blob: p.blob, test: p.test, caso: p.caso, ts: p
 async function borrarFotos(ids){
   const lote = pendientes.filter(p => ids.indexOf(p.id) !== -1);
   if(!lote.length) return;
-  if(!confirm(lote.length === 1
-      ? "¿Borrar esta foto?\n\nLas siguientes se renumeran solas."
-      : "¿Borrar " + lote.length + " fotos?\n\nLas siguientes se renumeran solas.")) return;
+  const ok = await preguntar(
+    lote.length === 1 ? "¿Borrar esta foto?" : "¿Borrar " + lote.length + " fotos?",
+    "Las siguientes se renumeran solas.",
+    "Borrar", "No, dejarlas");
+  if(!ok) return;
   lote.forEach(p => { if(p.url) URL.revokeObjectURL(p.url); });
   await borrarLote(lote);
   salirSeleccion();
@@ -1005,6 +1034,56 @@ function detenerCamara(){
   hayCamaraViva = false;
 }
 
+/* De qué lado va la botonera en horizontal.
+   Se busca el lado del borde INFERIOR del teléfono, que es el contrario al lente,
+   para que la mano no cruce por delante de la cámara (igual que la cámara nativa).
+   La convención de signos del ángulo no es igual en todos los navegadores, así que
+   el botón ⇄ permite invertirlo y la elección queda guardada. */
+function anguloPantalla(){
+  if(screen.orientation && typeof screen.orientation.angle === "number") return screen.orientation.angle;
+  if(typeof window.orientation === "number") return ((window.orientation % 360) + 360) % 360;
+  return 0;
+}
+
+function aplicarLadoPanel(){
+  let izquierda = anguloPantalla() === 90;
+  if(S.invertirLado) izquierda = !izquierda;
+  $("#app").classList.toggle("panelIzq", izquierda);
+}
+
+/* En iOS, cualquier diálogo o cambio de foco puede dejar el video pausado sin
+   que nadie lo reanude. Esto lo revive, y si la pista murió, rearma la cámara. */
+function revivirVideo(){
+  if(!S.capturando) return;
+  if(!stream){ return; }
+  if(!camaraViva()){ iniciarCamara(); return; }
+  const v = $("#video");
+  if(v.paused) v.play().catch(() => {});
+}
+
+/* Pregunta dentro de la app. El confirm() del sistema congela la cámara en
+   iPhone, así que no se usa mientras hay captura en curso. */
+let resolverPregunta = null;
+
+function preguntar(titulo, texto, textoSi, textoNo){
+  return new Promise(res => {
+    resolverPregunta = res;
+    $("#tituloPregunta").textContent = titulo;
+    $("#textoPregunta").textContent = texto;
+    $("#btnPreguntaSi").textContent = textoSi || "Sí";
+    $("#btnPreguntaNo").textContent = textoNo || "Cancelar";
+    $("#modalPregunta").classList.remove("oculto");
+  });
+}
+
+function responderPregunta(valor){
+  $("#modalPregunta").classList.add("oculto");
+  const f = resolverPregunta;
+  resolverPregunta = null;
+  revivirVideo();
+  if(f) f(valor);
+}
+
 function modoCamaraNativa(motivo){
   hayCamaraViva = false;
   $("#video").classList.add("oculto");
@@ -1155,7 +1234,7 @@ function pedirCasos(modo){
   setTimeout(() => { $("#inpCasos").focus(); $("#inpCasos").select(); }, 60);
 }
 
-function confirmarCasos(){
+async function confirmarCasos(){
   const n = parseInt($("#inpCasos").value, 10);
   if(!(n >= 1 && n <= 999)){ avisar("Poné una cantidad de casos válida", true); return; }
 
@@ -1163,9 +1242,14 @@ function confirmarCasos(){
   if(modoModalCasos === "editar" && n < previos){
     const conFotos = [];
     for(let c = n + 1; c <= previos; c++) if(fotosDe(S.test, c) > 0) conFotos.push(c);
-    if(conFotos.length && !confirm(
-        "Las pruebas " + conFotos.join(", ") + " ya tienen fotos y quedarían fuera del test.\n\n" +
-        "Las fotos ya guardadas en el teléfono no se borran. ¿Seguir igual?")) return;
+    if(conFotos.length){
+      const ok = await preguntar(
+        "Quedarían pruebas afuera",
+        "Las pruebas " + conFotos.join(", ") + " ya tienen fotos y quedarían fuera del test. " +
+        "Las fotos ya guardadas en el teléfono no se borran.",
+        "Seguir igual", "Cancelar");
+      if(!ok) return;
+    }
   }
 
   S.casos[S.test] = n;
@@ -1196,14 +1280,18 @@ function arrancarCaptura(){
   pintarCaptura();
   pintarTira();
   pintarPendientes();
+  aplicarLadoPanel();
   iniciarCamara();
 }
 
-function detenerCaptura(){
+async function detenerCaptura(){
   const fotos = fotosDelTest(S.test);
-  if(!confirm("¿Detener el Test " + S.test + "?\n\n" +
-      (fotos ? "Llevás " + fotos + (fotos === 1 ? " foto." : " fotos.") + " " : "") +
-      "Vas a volver a la lista para elegir otro test. Lo podés reanudar cuando quieras.")) return;
+  const ok = await preguntar(
+    "¿Detener el Test " + S.test + "?",
+    (fotos ? "Llevás " + fotos + (fotos === 1 ? " foto. " : " fotos. ") : "") +
+    "Vas a volver a la lista para elegir otro test. Lo podés reanudar cuando quieras.",
+    "Detener", "Seguir acá");
+  if(!ok) return;
   const n = S.test;
   pedirGuardado(() => {
     mostrarSeleccion();
@@ -1426,6 +1514,11 @@ document.addEventListener("visibilitychange", () => {
   if(document.visibilityState === "visible" && S.capturando && !camaraViva()) iniciarCamara();
 });
 
+/* Red de seguridad: en iPhone el video se pausa por motivos difíciles de prever
+   (diálogos, cambios de foco, el menú de compartir) y no se reanuda solo.
+   Esto lo detecta y lo destraba sin que tengas que salir del test. */
+setInterval(revivirVideo, 1500);
+
 $("#btnIniciar").addEventListener("click", () => pedirCasos("iniciar"));
 $("#btnConfirmarCasos").addEventListener("click", confirmarCasos);
 $("#btnCancelarCasos").addEventListener("click", () => $("#modalCasos").classList.add("oculto"));
@@ -1456,6 +1549,9 @@ document.querySelectorAll(".modal").forEach(m => {
 });
 $("#inpCasos").addEventListener("keydown", e => { if(e.key === "Enter") confirmarCasos(); });
 
+$("#btnPreguntaSi").addEventListener("click", () => responderPregunta(true));
+$("#btnPreguntaNo").addEventListener("click", () => responderPregunta(false));
+
 $("#btnCancelSel").addEventListener("click", salirSeleccion);
 $("#btnBorrarSel").addEventListener("click", () => borrarFotos(seleccion.slice()));
 $("#btnMoverSel").addEventListener("click", () => {
@@ -1476,6 +1572,19 @@ $("#btnConfirmarMover").addEventListener("click", () => {
   $("#modalMover").classList.add("oculto");
   moverFotos(seleccion.slice(), t, c);
 });
+
+$("#btnLado").addEventListener("click", () => {
+  S.invertirLado = !S.invertirLado;
+  guardarEstado();
+  aplicarLadoPanel();
+  avisar("Botones a la " + ($("#app").classList.contains("panelIzq") ? "izquierda" : "derecha"));
+});
+
+window.addEventListener("orientationchange", () => setTimeout(aplicarLadoPanel, 150));
+window.addEventListener("resize", aplicarLadoPanel);
+if(screen.orientation && screen.orientation.addEventListener){
+  screen.orientation.addEventListener("change", aplicarLadoPanel);
+}
 
 $("#btnLente").addEventListener("click", abrirSelectorLente);
 $("#btnCerrarLente").addEventListener("click", () => $("#modalLente").classList.add("oculto"));
@@ -1537,7 +1646,7 @@ if(cargarEstado()){
 
 /* Se muestra en pantalla para saber sin adivinar qué versión tiene cada teléfono.
    Subir este número junto con el CACHE de sw.js en cada cambio. */
-const VERSION = "v9";
+const VERSION = "v10";
 $("#verInicio").textContent = VERSION;
 $("#verAjustes").textContent = VERSION;
 
