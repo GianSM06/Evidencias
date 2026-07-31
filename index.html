@@ -42,6 +42,8 @@
     border-radius:14px; padding:18px; font-size:34px; font-weight:700; text-align:center;
   }
   .campo:focus{outline:none; border-color:var(--acc)}
+  .campo.texto{font-size:18px; font-weight:600; text-align:left; padding:15px 16px}
+  .campo.texto::placeholder{color:var(--tx2); font-weight:400}
   label{display:block; font-size:14px; color:var(--tx2); margin:0 0 10px}
 
   /* ---------- 1. Inicio / cierre ---------- */
@@ -158,11 +160,6 @@
     border:1px solid var(--line); display:block;
   }
   .mini.sel img{outline:3px solid var(--acc); outline-offset:-2px}
-  .mini .x{
-    position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%;
-    background:var(--stop2); color:#fff; border:1.5px solid var(--panel);
-    font-size:13px; line-height:17px; text-align:center; cursor:pointer; font-weight:700;
-  }
   /* barra de selección: va encima de la tira, sin alterar el alto de la fila */
   #barraSel{
     position:absolute; inset:0; background:var(--panel); z-index:6;
@@ -278,6 +275,17 @@
     background:var(--panel); width:100%; max-width:520px; border-radius:18px 18px 0 0;
     padding:22px 20px calc(22px + var(--sab)); border-top:1px solid var(--line);
   }
+  /* la vista previa va centrada, no como panel inferior */
+  .modal.centrado{align-items:center; padding:14px}
+  .modal.centrado .caja{border-radius:16px; border:1px solid var(--line); max-height:94vh; overflow-y:auto}
+  #fotoGrande{
+    width:100%; max-height:50vh; object-fit:contain; background:#000;
+    border-radius:10px; display:block;
+  }
+  #fotoNav{display:flex; align-items:center; gap:10px; margin:12px 0 4px}
+  #fotoNav .btn{margin-top:0; flex:none; width:70px; padding:12px}
+  #fotoNav span{flex:1; text-align:center; font-size:13px; color:var(--tx2)}
+  .btn.borrar{background:var(--stop)}
   .modal h2{margin:0 0 6px; font-size:19px}
   .modal p.ayuda{margin:0 0 18px; font-size:13.5px; color:var(--tx2); line-height:1.5}
   .fila{margin-bottom:18px}
@@ -292,6 +300,12 @@
 <section id="inicio">
   <h1>Evidencias de validación</h1>
   <p class="sub">Sacá las fotos del protocolo. Cada una queda con el test, el caso de prueba y la hora estampados en la imagen.</p>
+
+  <label for="nombreProtocolo">Nombre del protocolo <span style="opacity:.6">(opcional)</span></label>
+  <input id="nombreProtocolo" class="campo texto" type="text" maxlength="40"
+         placeholder="Ej: PROT-1024" autocomplete="off">
+  <p class="nota" style="margin:8px 0 22px">Se antepone al nombre de cada foto, para
+  distinguirlas si juntás varios protocolos en la misma carpeta.</p>
 
   <label for="cantTests">¿Cuántos tests tiene el protocolo?</label>
   <input id="cantTests" class="campo" type="number" inputmode="numeric" min="1" max="999" value="10">
@@ -321,7 +335,7 @@
 <section id="seleccion" class="oculto">
   <header id="selCab">
     <div class="t">
-      <b>Elegí el test</b>
+      <b id="selTitulo">Elegí el test</b>
       <span id="selResumen">—</span>
     </div>
     <button id="btnAjustes" class="iconbtn" title="Ajustes">⚙</button>
@@ -415,6 +429,21 @@
   </div>
 </section>
 
+<!-- ============ MODAL: vista previa de una foto de la cola ============ -->
+<section id="modalFoto" class="modal centrado oculto">
+  <div class="caja">
+    <img id="fotoGrande" alt="">
+    <p class="ayuda" id="fotoPie">—</p>
+    <div id="fotoNav">
+      <button id="btnFotoAnt" class="btn sec">◀</button>
+      <span id="fotoPos">—</span>
+      <button id="btnFotoSig" class="btn sec">▶</button>
+    </div>
+    <button id="btnFotoBorrar" class="btn borrar">Borrar esta foto</button>
+    <button id="btnFotoCerrar" class="btn">Cerrar</button>
+  </div>
+</section>
+
 <!-- ============ MODAL: preguntar (reemplaza al confirm del sistema) ============ -->
 <section id="modalPregunta" class="modal oculto">
   <div class="caja">
@@ -491,6 +520,13 @@
     </div>
 
     <div class="fila">
+      <span>Nombre del protocolo</span>
+      <input id="inpProtocolo" class="campo texto" type="text" maxlength="40"
+             placeholder="Sin nombre" autocomplete="off">
+      <small>Se antepone al nombre de las fotos que exportes de ahora en adelante. Las ya guardadas no cambian.</small>
+    </div>
+
+    <div class="fila">
       <span>Cantidad de tests del protocolo</span>
       <input id="inpTotalTests" class="campo" type="number" inputmode="numeric" min="1" max="999">
       <small>Podés ampliarla si el protocolo tenía más tests de los que cargaste.</small>
@@ -539,6 +575,7 @@ const S = {
   finalizado: false,  // true tras confirmar "Finalizar protocolo"
   camaraId: null,     // cámara trasera elegida a mano (null = la que decida el sistema)
   invertirLado: false,// da vuelta de qué lado va la botonera en horizontal
+  protocolo: "",      // nombre opcional; se antepone al nombre de cada archivo
   casos: {},          // { test: cantidad de casos }
   ultimoCaso: {},     // { test: último caso trabajado }
   conteos: {},        // { test: { caso: cantidad de imágenes } }
@@ -582,6 +619,23 @@ function fotosDelTest(t){
    ======================================================================= */
 const $ = s => document.querySelector(s);
 const dosDig = n => String(n).padStart(2, "0");
+
+/* Deja el nombre del protocolo usable como parte de un nombre de archivo:
+   saca los caracteres que Windows, Android o iOS no aceptan. */
+function limpiarNombre(txt){
+  return (txt || "")
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/\s+/g, "_")
+    .replace(/[_-]{2,}/g, "_")
+    .replace(/^[_.\-]+|[_.\-]+$/g, "")
+    .slice(0, 40);
+}
+
+const prefijoProtocolo = () => {
+  const p = limpiarNombre(S.protocolo);
+  return p ? p + "_" : "";
+};
 
 // La hora no se usa en ningún lado: ni en el pie de foto ni en el nombre del archivo.
 
@@ -848,7 +902,8 @@ async function prepararLote(){
     const n = ++contador[clave];
 
     const pie = "Test " + p.test + " - Prueba " + p.caso + " - Imagen " + n;
-    const nombre = "Test_" + dosDig(p.test) + "_Prueba_" + dosDig(p.caso) +
+    const nombre = prefijoProtocolo() +
+                   "Test_" + dosDig(p.test) + "_Prueba_" + dosDig(p.caso) +
                    "_Imagen_" + dosDig(n) + ".jpg";
     const estampada = await estamparDesdeBlob(p.blob, pie);
     archivos.push(new File([estampada], nombre, { type: "image/jpeg" }));
@@ -1138,6 +1193,7 @@ function pintarListaTests(){
 
   $("#btnIniciar").textContent =
     (casosDe(S.test) > 0 ? "Reanudar Test " : "Iniciar Test ") + S.test;
+  $("#selTitulo").textContent = S.protocolo ? S.protocolo : "Elegí el test";
   $("#selResumen").textContent =
     S.totalTests + " tests · " + conEvidencia + " con evidencias" +
     (S.finalizado ? " · finalizado" : "");
@@ -1338,10 +1394,7 @@ function textosPie(){
   const nImagen = fotosDe(S.test, S.caso) + 1;
   return {
     nImagen: nImagen,
-    l1: "Test " + S.test + " - Prueba " + S.caso + " - Imagen " + nImagen,
-    // el nombre del archivo repite el pie de foto, nada más
-    archivo: "Test_" + dosDig(S.test) + "_Prueba_" + dosDig(S.caso) +
-             "_Imagen_" + dosDig(nImagen) + ".jpg"
+    l1: "Test " + S.test + " - Prueba " + S.caso + " - Imagen " + nImagen
   };
 }
 
@@ -1424,6 +1477,7 @@ async function registrarFoto(blob, t){
    escribieron en el teléfono y por lo tanto se pueden borrar o mover. */
 let modoSeleccion = false;
 let seleccion = [];
+let ignorarClick = false;   // evita que el toque largo abra además la vista previa
 
 function entrarSeleccion(id){
   modoSeleccion = true;
@@ -1450,6 +1504,48 @@ function pintarBarraSel(){
     (seleccion.length === 1 ? " seleccionada" : " seleccionadas");
 }
 
+/* Vista previa de una foto todavía en la cola.
+   Se muestra la imagen cruda con el pie que le va a tocar al exportar: el pie
+   se dibuja recién ahí, así que acá va como texto y no quemado en la imagen. */
+let fotoVista = null;
+
+const mismasDe = p => pendientes
+  .filter(q => q.test === p.test && q.caso === p.caso)
+  .sort((a, b) => a.ts - b.ts);
+
+function abrirFoto(id){
+  const p = pendientes.filter(q => q.id === id)[0];
+  if(!p) return cerrarFoto();
+  fotoVista = id;
+  if(!p.url) p.url = URL.createObjectURL(p.blob);
+
+  const lista = mismasDe(p);
+  const i = lista.map(q => q.id).indexOf(id);
+
+  $("#fotoGrande").src = p.url;
+  $("#fotoPie").textContent = "Va a salir como: Test " + p.test + " - Prueba " + p.caso +
+                              " - Imagen " + (exportadasDe(p.test, p.caso) + i + 1);
+  $("#fotoPos").textContent = (i + 1) + " de " + lista.length;
+  $("#btnFotoAnt").disabled = i <= 0;
+  $("#btnFotoSig").disabled = i >= lista.length - 1;
+  $("#modalFoto").classList.remove("oculto");
+}
+
+function moverVista(paso){
+  const p = pendientes.filter(q => q.id === fotoVista)[0];
+  if(!p) return;
+  const lista = mismasDe(p);
+  const i = lista.map(q => q.id).indexOf(fotoVista) + paso;
+  if(i < 0 || i >= lista.length) return;
+  abrirFoto(lista[i].id);
+}
+
+function cerrarFoto(){
+  fotoVista = null;
+  $("#modalFoto").classList.add("oculto");
+  revivirVideo();
+}
+
 function pintarTira(){
   const tira = $("#tira");
   tira.innerHTML = "";
@@ -1466,16 +1562,15 @@ function pintarTira(){
       im.src = p.url;
       cont.appendChild(im);
 
-      if(!modoSeleccion){
-        const x = document.createElement("span");
-        x.className = "x";
-        x.textContent = "×";
-        x.addEventListener("click", ev => { ev.stopPropagation(); borrarFotos([p.id]); });
-        cont.appendChild(x);
-      }
-
       let reloj = null;
-      const arrancar = () => { reloj = setTimeout(() => { reloj = null; entrarSeleccion(p.id); }, 450); };
+      const arrancar = () => {
+        reloj = setTimeout(() => {
+          reloj = null;
+          ignorarClick = true;                 // el toque largo no debe abrir la vista previa
+          setTimeout(() => { ignorarClick = false; }, 700);
+          entrarSeleccion(p.id);
+        }, 450);
+      };
       const soltar = () => { if(reloj){ clearTimeout(reloj); reloj = null; } };
       cont.addEventListener("touchstart", arrancar, { passive: true });
       cont.addEventListener("touchend", soltar);
@@ -1483,7 +1578,11 @@ function pintarTira(){
       cont.addEventListener("mousedown", arrancar);
       cont.addEventListener("mouseup", soltar);
       cont.addEventListener("mouseleave", soltar);
-      cont.addEventListener("click", () => { if(modoSeleccion) alternarSeleccion(p.id); });
+      cont.addEventListener("click", () => {
+        if(ignorarClick){ ignorarClick = false; return; }
+        if(modoSeleccion) alternarSeleccion(p.id);
+        else abrirFoto(p.id);
+      });
 
       tira.appendChild(cont);
     });
@@ -1497,6 +1596,7 @@ $("#btnEmpezar").addEventListener("click", () => {
   const n = parseInt($("#cantTests").value, 10);
   if(!(n >= 1 && n <= 999)){ avisar("Poné un número de tests válido", true); return; }
   S.totalTests = n;
+  S.protocolo = $("#nombreProtocolo").value.trim();
   S.test = 1; S.caso = 1; S.capturando = false; S.finalizado = false;
   S.casos = {}; S.ultimoCaso = {}; S.conteos = {};
   S.guardado = esIOS ? "compartir" : "descargar";
@@ -1544,10 +1644,21 @@ document.querySelectorAll(".modal").forEach(m => {
     if(e.target !== m) return;
     // el de confirmación no se cierra sin respuesta: hay una promesa esperándola
     if(m.id === "modalConfirma"){ responderConfirma(false); return; }
+    if(m.id === "modalPregunta"){ responderPregunta(false); return; }
     m.classList.add("oculto");
+    revivirVideo();
   });
 });
 $("#inpCasos").addEventListener("keydown", e => { if(e.key === "Enter") confirmarCasos(); });
+
+$("#btnFotoCerrar").addEventListener("click", cerrarFoto);
+$("#btnFotoAnt").addEventListener("click", () => moverVista(-1));
+$("#btnFotoSig").addEventListener("click", () => moverVista(1));
+$("#btnFotoBorrar").addEventListener("click", () => {
+  const id = fotoVista;
+  cerrarFoto();
+  borrarFotos([id]);
+});
 
 $("#btnPreguntaSi").addEventListener("click", () => responderPregunta(true));
 $("#btnPreguntaNo").addEventListener("click", () => responderPregunta(false));
@@ -1598,6 +1709,7 @@ $("#btnSiguiente").addEventListener("click", () => irACaso(S.caso + 1));
 $("#btnAjustes").addEventListener("click", () => {
   $("#selGuardado").value = S.guardado;
   $("#inpTotalTests").value = S.totalTests;
+  $("#inpProtocolo").value = S.protocolo || "";
   $("#ajustes").classList.remove("oculto");
 });
 $("#btnCerrarAjustes").addEventListener("click", () => {
@@ -1605,6 +1717,7 @@ $("#btnCerrarAjustes").addEventListener("click", () => {
   if(n >= 1 && n <= 999) S.totalTests = n;
   const modoPrevio = S.guardado;
   S.guardado = $("#selGuardado").value;
+  S.protocolo = $("#inpProtocolo").value.trim();
   if(S.test > S.totalTests) S.test = S.totalTests;
   guardarEstado();
   $("#ajustes").classList.add("oculto");
@@ -1637,6 +1750,7 @@ $("#btnReiniciar").addEventListener("click", () => {
    ======================================================================= */
 if(cargarEstado()){
   $("#cantTests").value = S.totalTests;
+  $("#nombreProtocolo").value = S.protocolo || "";
   const btn = $("#btnRetomar");
   btn.textContent = S.capturando && casosDe(S.test) > 0
     ? "Retomar en Test " + S.test + " - Prueba " + S.caso
