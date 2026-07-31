@@ -800,6 +800,29 @@ async function encolar(blob){
 
 const sinUrl = p => ({ id: p.id, blob: p.blob, test: p.test, caso: p.caso, ts: p.ts });
 
+/* Vacía la cola por completo. La usa el arranque de un protocolo nuevo: si no,
+   las fotos que quedaron sin exportar reaparecen y se suman a los contadores
+   del protocolo siguiente. */
+async function descartarPendientes(){
+  pendientes.forEach(p => { if(p.url) URL.revokeObjectURL(p.url); });
+  pendientes = [];
+  try{ await conTienda("readwrite", t => t.clear()); }catch(e){}
+  pintarPendientes();
+}
+
+/* Pregunta lo que corresponda antes de reiniciar. Devuelve true si hay que seguir. */
+async function permisoParaEmpezarDeNuevo(){
+  if(pendientes.length){
+    const n = pendientes.length;
+    return preguntar(
+      "Hay " + n + (n === 1 ? " foto sin guardar" : " fotos sin guardar"),
+      "Si empezás un protocolo nuevo se descartan y no se pueden recuperar. " +
+      "Podés cancelar y guardarlas con el botón naranja.",
+      "Descartar y empezar", "Cancelar");
+  }
+  return true;
+}
+
 async function borrarFotos(ids){
   const lote = pendientes.filter(p => ids.indexOf(p.id) !== -1);
   if(!lote.length) return;
@@ -1592,9 +1615,11 @@ function pintarTira(){
 /* =======================================================================
    Eventos
    ======================================================================= */
-$("#btnEmpezar").addEventListener("click", () => {
+$("#btnEmpezar").addEventListener("click", async () => {
   const n = parseInt($("#cantTests").value, 10);
   if(!(n >= 1 && n <= 999)){ avisar("Poné un número de tests válido", true); return; }
+  if(!(await permisoParaEmpezarDeNuevo())) return;
+  await descartarPendientes();
   S.totalTests = n;
   S.protocolo = $("#nombreProtocolo").value.trim();
   S.test = 1; S.caso = 1; S.capturando = false; S.finalizado = false;
@@ -1605,6 +1630,12 @@ $("#btnEmpezar").addEventListener("click", () => {
 });
 
 $("#btnRetomar").addEventListener("click", () => {
+  // si escribiste o cambiaste el nombre antes de retomar, se toma igual
+  const escrito = $("#nombreProtocolo").value.trim();
+  if(escrito !== (S.protocolo || "")){
+    S.protocolo = escrito;
+    guardarEstado();
+  }
   if(S.capturando && casosDe(S.test) > 0) arrancarCaptura();
   else mostrarSeleccion();
 });
@@ -1739,8 +1770,17 @@ $("#btnCerrarAjustes").addEventListener("click", () => {
   pintarPendientes();
   pintarListaTests();
 });
-$("#btnReiniciar").addEventListener("click", () => {
-  if(!confirm("¿Empezar un protocolo nuevo? Se reinician los tests, los casos y los contadores.\n\nLas fotos ya guardadas en el teléfono no se tocan.")) return;
+$("#btnReiniciar").addEventListener("click", async () => {
+  if(pendientes.length){
+    if(!(await permisoParaEmpezarDeNuevo())) return;
+  }else{
+    const ok = await preguntar(
+      "¿Empezar un protocolo nuevo?",
+      "Se reinician los tests, los casos y los contadores. Las fotos ya guardadas en el teléfono no se tocan.",
+      "Empezar de nuevo", "Cancelar");
+    if(!ok) return;
+  }
+  await descartarPendientes();
   try{ localStorage.removeItem(CLAVE); }catch(e){}
   location.reload();
 });
@@ -1748,6 +1788,16 @@ $("#btnReiniciar").addEventListener("click", () => {
 /* =======================================================================
    Arranque
    ======================================================================= */
+/* El navegador repone solo los valores de los formularios al recargar, y eso
+   volvía a mostrar el nombre del protocolo anterior después de reiniciar.
+   pageshow corre DESPUÉS de esa reposición, así que acá gana el estado real. */
+$("#nombreProtocolo").value = S.protocolo || "";
+window.addEventListener("pageshow", () => {
+  if(!$("#inicio").classList.contains("oculto")){
+    $("#nombreProtocolo").value = S.protocolo || "";
+  }
+});
+
 if(cargarEstado()){
   $("#cantTests").value = S.totalTests;
   $("#nombreProtocolo").value = S.protocolo || "";
@@ -1760,7 +1810,7 @@ if(cargarEstado()){
 
 /* Se muestra en pantalla para saber sin adivinar qué versión tiene cada teléfono.
    Subir este número junto con el CACHE de sw.js en cada cambio. */
-const VERSION = "v11";
+const VERSION = "v13";
 $("#verInicio").textContent = VERSION;
 $("#verAjustes").textContent = VERSION;
 

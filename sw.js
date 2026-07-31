@@ -5,7 +5,7 @@
    instalada se quedara con una versión vieja aunque el servidor ya tuviera otra.
    Ahora, si hay señal, siempre se trae lo último; si no hay, usa la copia.
    El timeout evita que una señal mala deje la app colgada esperando la red. */
-const CACHE = "evidencias-v11";
+const CACHE = "evidencias-v13";
 const ESPERA_RED = 1200;   // sin señal, es lo que se espera antes de usar la copia
 const ARCHIVOS = ["./", "./index.html", "./manifest.webmanifest", "./icono.svg"];
 
