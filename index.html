@@ -375,13 +375,10 @@
   </p>
 
   <p class="nota">
-    Las fotos se acumulan y se guardan todas juntas al cerrar cada test. Hasta ese momento
-    podés borrarlas o moverlas de test, y la numeración se corrige sola.<br><br>
-    <b>Android:</b> bajan a <b>Descargas</b>. La primera vez el teléfono pregunta si permitís
-    descargar varios archivos: aceptá.<br><br>
-    <b>iPhone:</b> en el menú elegí <b>“Guardar en Archivos”</b>, no “Guardar imagen”:
-    Archivos conserva los nombres (<i>Test_03_Prueba_02_Imagen_05</i>) y Fotos los
-    reemplaza por <i>IMG_0042</i>.
+    Las fotos se acumulan y al cerrar cada test baja <b>un zip</b> con la carpeta del test.
+    Hasta ese momento podés borrarlas o moverlas, y la numeración se corrige sola.<br><br>
+    <b>Android:</b> el zip baja a <b>Descargas</b>.<br><br>
+    <b>iPhone:</b> en el menú de compartir elegí <b>“Guardar en Archivos”</b>.
   </p>
 </section>
 
@@ -429,7 +426,7 @@
   <div id="visor">
     <video id="video" playsinline autoplay muted></video>
     <div id="marcaAgua">
-      <div class="l1" id="maL1">Test 1 - Prueba 1 - Imagen 1</div>
+      <div class="l1" id="maL1">Test 1 - Prueba 1 - Imagen 001</div>
     </div>
     <div id="accionesVisor">
       <button id="btnNota" class="oculto" title="Nota de esta prueba">✎ Nota</button>
@@ -780,6 +777,26 @@ const exportadasDe  = (t,c) => (S.conteos[t] && S.conteos[t][c]) || 0;
 const enColaDe      = (t,c) => pendientes.filter(p => p.test === t && p.caso === c).length;
 const fotosDe       = (t,c) => exportadasDe(t,c) + enColaDe(t,c);
 
+/* Número global que le va a tocar a una foto al exportar. El orden de exportación
+   es test, prueba y hora, así que alcanza con contar cuántas van antes que ella.
+   Se usa para previsualizar: el número definitivo se asigna al exportar. */
+function numeroGlobalDe(p){
+  const antes = pendientes.filter(q =>
+    q.test < p.test ||
+    (q.test === p.test && q.caso < p.caso) ||
+    (q.test === p.test && q.caso === p.caso && q.ts < p.ts)
+  ).length;
+  return S.proximaImagen + antes;
+}
+
+/* El que le tocaría a la próxima foto de la prueba actual. */
+function proximoNumeroGlobal(){
+  const antes = pendientes.filter(q =>
+    q.test < S.test || (q.test === S.test && q.caso <= S.caso)
+  ).length;
+  return S.proximaImagen + antes;
+}
+
 function sumarExportadas(t,c,n){
   if(!S.conteos[t]) S.conteos[t] = {};
   S.conteos[t][c] = exportadasDe(t,c) + n;
@@ -810,10 +827,6 @@ function limpiarNombre(txt){
     .slice(0, 40);
 }
 
-const prefijoProtocolo = () => {
-  const p = limpiarNombre(S.protocolo);
-  return p ? p + "_" : "";
-};
 
 // La hora no se usa en ningún lado: ni en el pie de foto ni en el nombre del archivo.
 
@@ -2074,7 +2087,7 @@ function pintarCaptura(){
   // el número es corrido en todo el protocolo, así que la próxima foto sería
   // la que sigue a lo ya exportado más lo que hay esperando en la cola
   $("#maL1").textContent = "Test " + S.test + " - Prueba " + S.caso +
-                           " - Imagen " + tresDig(S.proximaImagen + pendientes.length);
+                           " - Imagen " + tresDig(proximoNumeroGlobal());
 
   const ant = $("#btnAnterior"), sig = $("#btnSiguiente");
   ant.disabled = S.caso <= 1;
@@ -2100,12 +2113,11 @@ function irACaso(n){
    ======================================================================= */
 let ocupado = false;
 
+/* Solo para el aviso que aparece al sacar la foto. Usa el número corrido, el
+   mismo que muestran el visor y la vista previa: si acá dijera la cuenta de la
+   prueba, tendrías tres números distintos para la misma foto. */
 function textosPie(){
-  const nImagen = fotosDe(S.test, S.caso) + 1;
-  return {
-    nImagen: nImagen,
-    l1: "Test " + S.test + " - Prueba " + S.caso + " - Imagen " + nImagen
-  };
+  return { nImagen: tresDig(proximoNumeroGlobal()) };
 }
 
 function sacarFoto(){
@@ -2240,7 +2252,7 @@ function abrirFoto(id){
 
   $("#fotoGrande").src = p.url;
   $("#fotoPie").textContent = "Va a salir como: Test " + p.test + " - Prueba " + p.caso +
-                              " - Imagen " + (exportadasDe(p.test, p.caso) + i + 1);
+                              " - Imagen " + tresDig(numeroGlobalDe(p));
   $("#fotoPos").textContent = (i + 1) + " de " + lista.length;
   $("#btnFotoAnt").disabled = i <= 0;
   $("#btnFotoSig").disabled = i >= lista.length - 1;
@@ -2543,7 +2555,7 @@ if(cargarEstado()){
        (0 = archivos sueltos con pie | 1 = zip sin pie | 2 = zip con pie opcional)
      - el MENOR sube en CADA cambio y nunca se reinicia, así ningún build repite número.
    Subir siempre junto con el CACHE de sw.js. */
-const VERSION = "2.25";
+const VERSION = "2.26";
 $("#verInicio").textContent = VERSION + (ES_PRUEBAS ? " · PRUEBAS" : "");
 $("#verAjustes").textContent = VERSION + (ES_PRUEBAS ? " · PRUEBAS" : "");
 pintarAyudaModo();
