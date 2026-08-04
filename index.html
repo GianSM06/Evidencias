@@ -112,6 +112,12 @@
     border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px;
   }
   #cab .info{flex:1; min-width:0}
+  /* siempre visible: evita seguir sacando fotos en el protocolo equivocado */
+  #protActivo{
+    font-size:11.5px; font-weight:700; color:var(--acc); letter-spacing:.03em;
+    text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    margin-bottom:1px;
+  }
   #tituloTest{font-size:22px; font-weight:800; letter-spacing:-.02em; line-height:1.15}
   #subTest{font-size:13px; color:var(--tx2); margin-top:3px}
   #btnEditarCasos{
@@ -141,6 +147,13 @@
     border-radius:10px; padding:7px 11px; font-size:12px; font-weight:700; cursor:pointer;
   }
   #btnLado{display:none}          /* solo tiene sentido en horizontal */
+  #btnNota.conNota{background:var(--warn); color:#1b1200; border-color:var(--warn)}
+  #txtNota{
+    width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--tx);
+    border-radius:12px; padding:13px; font-size:15px; line-height:1.45; resize:vertical;
+    font-family:inherit; margin-bottom:4px;
+  }
+  #txtNota:focus{outline:none; border-color:var(--acc)}
   #flash{position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none}
   #flash.on{animation:fl .28s ease-out}
   @keyframes fl{from{opacity:.85}to{opacity:0}}
@@ -160,6 +173,13 @@
     border:1px solid var(--line); display:block;
   }
   .mini.sel img{outline:3px solid var(--acc); outline-offset:-2px}
+  /* foto que no se pudo guardar en el teléfono: se pierde si se cierra la app */
+  .mini.riesgo img{outline:3px solid var(--warn); outline-offset:-2px}
+  .mini.riesgo::after{
+    content:"!"; position:absolute; top:-5px; right:-5px; width:17px; height:17px;
+    border-radius:50%; background:var(--warn); color:#1b1200; font-size:12px;
+    font-weight:800; line-height:17px; text-align:center;
+  }
   /* barra de selección: va encima de la tira, sin alterar el alto de la fila */
   #barraSel{
     position:absolute; inset:0; background:var(--panel); z-index:6;
@@ -261,20 +281,35 @@
   }
 
   /* ---------- Avisos y modales ---------- */
+  #cartelPruebas{
+    position:fixed; left:0; right:0; bottom:0; z-index:200; pointer-events:none;
+    background:var(--warn); color:#1b1200; text-align:center; font-weight:800;
+    font-size:10.5px; letter-spacing:.04em; text-transform:uppercase;
+    padding:3px 6px calc(3px + var(--sab));
+  }
   #aviso{
     position:fixed; left:50%; transform:translateX(-50%); bottom:calc(120px + var(--sab));
     background:rgba(20,26,34,.97); border:1px solid var(--line); color:var(--tx);
     padding:11px 18px; border-radius:11px; font-size:14px; font-weight:600;
-    opacity:0; transition:opacity .2s; pointer-events:none; z-index:90; max-width:88vw; text-align:center;
+    opacity:0; transition:opacity .2s; pointer-events:none; z-index:150; max-width:88vw; text-align:center;
   }
   #aviso.ver{opacity:1}
   #aviso.err{border-color:#f85149; color:#ffc9c4}
 
   .modal{position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:80; display:flex; align-items:flex-end; justify-content:center}
+  /* Modales que se abren DESDE otro modal: tienen que quedar por encima, o el
+     de abajo los tapa y parece que el botón no hizo nada. */
+  #modalPapelera, #modalNuevoProt{z-index:95}
+  #modalPregunta{z-index:110}     /* puede abrirse desde cualquiera de los otros */
   .modal .caja{
     background:var(--panel); width:100%; max-width:520px; border-radius:18px 18px 0 0;
     padding:22px 20px calc(22px + var(--sab)); border-top:1px solid var(--line);
+    /* si el contenido no entra, se desplaza. El tope deja fondo visible arriba
+       para poder cerrar tocando afuera. */
+    max-height:88vh; overflow-y:auto; -webkit-overflow-scrolling:touch;
   }
+  /* el cartel de pruebas tapa el borde inferior: se le deja lugar */
+  body.enPruebas .modal .caja{padding-bottom:calc(34px + var(--sab))}
   /* la vista previa va centrada, no como panel inferior */
   .modal.centrado{align-items:center; padding:14px}
   .modal.centrado .caja{border-radius:16px; border:1px solid var(--line); max-height:94vh; overflow-y:auto}
@@ -285,6 +320,18 @@
   #fotoNav{display:flex; align-items:center; gap:10px; margin:12px 0 4px}
   #fotoNav .btn{margin-top:0; flex:none; width:70px; padding:12px}
   #fotoNav span{flex:1; text-align:center; font-size:13px; color:var(--tx2)}
+
+  /* papelera */
+  #listaPapelera{max-height:44vh; overflow-y:auto; margin-bottom:14px}
+  .filaPap{
+    display:flex; align-items:center; gap:11px; width:100%; text-align:left;
+    background:var(--panel2); border:1px solid var(--line); border-radius:11px;
+    padding:8px 10px; margin-bottom:7px; cursor:pointer; color:var(--tx);
+  }
+  .filaPap.sel{border-color:var(--warn); background:#2a2312}
+  .filaPap .tic{flex:none; font-size:15px; color:var(--tx2); width:16px}
+  .filaPap.sel .tic{color:var(--warn)}
+  .filaPap .nom{font-size:12.5px; word-break:break-all; line-height:1.35}
   .btn.borrar{background:var(--stop)}
   .modal h2{margin:0 0 6px; font-size:19px}
   .modal p.ayuda{margin:0 0 18px; font-size:13.5px; color:var(--tx2); line-height:1.5}
@@ -309,6 +356,13 @@
 
   <label for="cantTests">¿Cuántos tests tiene el protocolo?</label>
   <input id="cantTests" class="campo" type="number" inputmode="numeric" min="1" max="999" value="10">
+
+  <label for="selModo" style="margin-top:22px">¿Las fotos llevan pie estampado?</label>
+  <select id="selModo" class="campo texto">
+    <option value="pie">Sí, con pie en cada foto</option>
+    <option value="carpetas">No, la foto limpia</option>
+  </select>
+  <p class="nota" id="ayudaModo" style="margin:8px 0 0"></p>
 
   <p class="nota" style="margin:14px 0 0; text-align:center">Versión <b id="verInicio">—</b></p>
 
@@ -338,6 +392,7 @@
       <b id="selTitulo">Elegí el test</b>
       <span id="selResumen">—</span>
     </div>
+    <button id="btnProtocolos" class="iconbtn" title="Cambiar de protocolo">⇆</button>
     <button id="btnAjustes" class="iconbtn" title="Ajustes">⚙</button>
   </header>
 
@@ -363,6 +418,7 @@
 <section id="app" class="oculto">
   <header id="cab">
     <div class="info">
+      <div id="protActivo">—</div>
       <div id="tituloTest">Test 1</div>
       <div id="subTest">Prueba 1 de 1</div>
       <button id="btnEditarCasos">cambiar cantidad de casos</button>
@@ -376,7 +432,8 @@
       <div class="l1" id="maL1">Test 1 - Prueba 1 - Imagen 1</div>
     </div>
     <div id="accionesVisor">
-      <button id="btnLado" title="Pasar los botones al otro lado">⇄</button>
+      <button id="btnNota" class="oculto" title="Nota de esta prueba">✎ Nota</button>
+      <button id="btnLado" title="Pasar los botones al otro lado">⇄ Lado</button>
       <button id="btnLente" title="Elegir cámara">⚙ Lente</button>
     </div>
     <div id="flash"></div>
@@ -482,14 +539,62 @@
   </div>
 </section>
 
-<!-- ============ MODAL: confirmar que el guardado salió bien ============ -->
-<section id="modalConfirma" class="modal oculto">
+<!-- ============ MODAL: nota de la prueba ============ -->
+<section id="modalNota" class="modal oculto">
   <div class="caja">
-    <h2>¿Se guardaron?</h2>
-    <p class="ayuda" id="txtConfirma">—</p>
-    <button id="btnSiSeGuardaron" class="btn verde">Sí, ya están guardadas</button>
-    <button id="btnNoSeGuardaron" class="btn sec">No, siguen pendientes</button>
-    <p class="ayuda" style="margin:14px 0 0">iOS no siempre avisa si el guardado salió bien, así que preferimos preguntarte antes de sacarlas de la lista. Si decís que sí y no estaban, no hay forma de recuperarlas desde la app.</p>
+    <h2 id="tituloNota">Nota</h2>
+    <p class="ayuda">Queda guardada con esta prueba y sale en el <b>notas.txt</b> del zip. La podés editar hasta que exportes el test.</p>
+    <textarea id="txtNota" rows="5" placeholder="Ej: la alarma tardó unos 4 segundos en activarse"></textarea>
+    <button id="btnGuardarNota" class="btn verde">Guardar nota</button>
+    <button id="btnBorrarNota" class="btn sec">Borrar nota</button>
+    <button id="btnCerrarNota" class="btn sec">Cancelar</button>
+  </div>
+</section>
+
+<!-- ============ MODAL: elegir protocolo ============ -->
+<section id="modalProtocolos" class="modal oculto">
+  <div class="caja">
+    <h2>Protocolos</h2>
+    <p class="ayuda">Podés tener dos abiertos a la vez e ir y venir. Las fotos de cada uno quedan separadas.</p>
+    <div id="listaProtocolos"></div>
+    <button id="btnCerrarProtocolos" class="btn">Cerrar</button>
+  </div>
+</section>
+
+<!-- ============ MODAL: crear el segundo protocolo ============ -->
+<section id="modalNuevoProt" class="modal oculto">
+  <div class="caja">
+    <h2 id="tituloNuevoProt">Nuevo protocolo</h2>
+    <div class="fila">
+      <span>Nombre <span style="opacity:.6">(opcional)</span></span>
+      <input id="inpNuevoNombre" class="campo texto" type="text" maxlength="40" placeholder="Ej: PROT-1025" autocomplete="off">
+    </div>
+    <div class="fila">
+      <span>¿Cuántos tests tiene?</span>
+      <input id="inpNuevoTests" class="campo" type="number" inputmode="numeric" min="1" max="999" value="10">
+    </div>
+    <div class="fila">
+      <span>¿Las fotos llevan pie estampado?</span>
+      <select id="selModoNuevo" class="campo texto">
+        <option value="pie">Sí, con pie en cada foto</option>
+        <option value="carpetas">No, la foto limpia</option>
+      </select>
+      <small>No se puede cambiar después de creado.</small>
+    </div>
+    <button id="btnConfirmarNuevoProt" class="btn verde">Crear y cambiar a este</button>
+    <button id="btnCancelarNuevoProt" class="btn sec">Cancelar</button>
+  </div>
+</section>
+
+<!-- ============ MODAL: papelera ============ -->
+<section id="modalPapelera" class="modal oculto">
+  <div class="caja">
+    <h2>Papelera</h2>
+    <p class="ayuda" id="txtPapelera">—</p>
+    <div id="listaPapelera"></div>
+    <button id="btnReexportar" class="btn guardar">Volver a exportar</button>
+    <button id="btnVaciarPapelera" class="btn sec">Vaciar papelera</button>
+    <button id="btnCerrarPapelera" class="btn">Cerrar</button>
   </div>
 </section>
 
@@ -532,10 +637,22 @@
       <small>Podés ampliarla si el protocolo tenía más tests de los que cargaste.</small>
     </div>
 
+    <div class="fila" id="filaIndice">
+      <span>Índice del protocolo</span>
+      <button id="btnIndiceMaestro" class="btn sec" style="margin-top:0">Descargar índice (CSV)</button>
+      <small>Listado de todas las imágenes exportadas con su test y prueba, para cruzar contra el informe.</small>
+    </div>
+
+    <div class="fila">
+      <span>Fotos ya exportadas</span>
+      <button id="btnAbrirPapelera" class="btn sec" style="margin-top:0">Papelera (—)</button>
+      <small>Guarda las últimas 80 fotos exportadas por si alguna descarga se perdió. Desde ahí las podés volver a exportar o borrarlas.</small>
+    </div>
+
     <p class="ayuda" style="margin:0">Versión instalada: <b id="verAjustes">—</b></p>
 
     <button id="btnCerrarAjustes" class="btn">Listo</button>
-    <button id="btnReiniciar" class="btn sec">Empezar un protocolo nuevo</button>
+    <button id="btnReiniciar" class="btn sec">Cerrar este protocolo y empezar otro</button>
   </div>
 </section>
 
@@ -565,33 +682,94 @@ window.addEventListener("error", function(e){
    Estado
    Jerarquía: Test N  ->  Prueba n (caso de prueba)  ->  Imagen a
    ======================================================================= */
-const CLAVE = "evidencias.sesion.v2";
+/* Repo de pruebas y repo de producción viven en el MISMO origen de GitHub Pages
+   (giansm06.github.io), así que compartirían almacenamiento. Para que la versión
+   de prueba no toque los protocolos reales, usa su propia base y su propia clave.
+   El mismo archivo sirve para los dos: se decide por la URL. */
+const ES_PRUEBAS = /(test|prueba|beta)/i.test(location.pathname);
+const SUFIJO = ES_PRUEBAS ? ".pruebas" : "";
+const NOMBRE_BD = ES_PRUEBAS ? "evidencias-pruebas" : "evidencias";
 
-const S = {
-  totalTests: 10,     // cantidad de tests del protocolo
-  test: 1,            // test seleccionado / en curso
-  caso: 1,            // caso de prueba dentro del test
-  capturando: false,  // true entre "Iniciar" y "Detener"
-  finalizado: false,  // true tras confirmar "Finalizar protocolo"
-  camaraId: null,     // cámara trasera elegida a mano (null = la que decida el sistema)
-  invertirLado: false,// da vuelta de qué lado va la botonera en horizontal
-  protocolo: "",      // nombre opcional; se antepone al nombre de cada archivo
-  casos: {},          // { test: cantidad de casos }
-  ultimoCaso: {},     // { test: último caso trabajado }
-  conteos: {},        // { test: { caso: cantidad de imágenes } }
-  guardado: "descargar"
-};
+const CLAVE = "evidencias.sesiones.v1" + SUFIJO;
+const CLAVE_VIEJA = "evidencias.sesion.v2" + SUFIJO;   // una sola sesión, antes de los dos protocolos
+
+function estadoNuevo(){
+  return {
+    totalTests: 10,     // cantidad de tests del protocolo
+    test: 1,            // test seleccionado / en curso
+    caso: 1,            // caso de prueba dentro del test
+    capturando: false,  // true entre "Iniciar" y "Detener"
+    finalizado: false,  // true tras confirmar "Finalizar protocolo"
+    camaraId: null,     // cámara trasera elegida a mano (null = la que decida el sistema)
+    invertirLado: false,// da vuelta de qué lado va la botonera en horizontal
+    protocolo: "",      // nombre opcional; se antepone al nombre de cada archivo
+    conPie: true,       // estampar o no la leyenda en cada foto
+    proximaImagen: 1,   // numeración corrida de todo el protocolo
+    notas: {},          // { test: { caso: "texto" } }
+    indice: [],         // [{ test, caso, n }] de lo ya exportado
+    casos: {},          // { test: cantidad de casos }
+    ultimoCaso: {},     // { test: último caso trabajado }
+    conteos: {},        // { test: { caso: cantidad de imágenes } }
+    guardado: "descargar"
+  };
+}
+
+/* Dos protocolos en paralelo, "A" y "B". Solo uno está activo por vez; las
+   fotos en cola quedan etiquetadas con el suyo y nunca se mezclan. */
+const RANURAS = ["A", "B"];
+let sesiones = { A: null, B: null };
+let activa = "A";
+let S = estadoNuevo();
 
 function guardarEstado(){
-  try{ localStorage.setItem(CLAVE, JSON.stringify(S)); }catch(e){}
+  sesiones[activa] = S;
+  try{
+    localStorage.setItem(CLAVE, JSON.stringify({ activa: activa, A: sesiones.A, B: sesiones.B }));
+  }catch(e){}
 }
+
 function cargarEstado(){
   try{
     const v = JSON.parse(localStorage.getItem(CLAVE) || "null");
-    if(v && v.totalTests > 0){ Object.assign(S, v); return true; }
+    if(v && (v.A || v.B)){
+      sesiones.A = v.A || null;
+      sesiones.B = v.B || null;
+      activa = (v.activa && sesiones[v.activa]) ? v.activa : (sesiones.A ? "A" : "B");
+      S = Object.assign(estadoNuevo(), sesiones[activa]);
+      migrarModo(S);
+      sesiones[activa] = S;
+      RANURAS.forEach(r => { if(sesiones[r] && sesiones[r] !== S) migrarModo(sesiones[r]); });
+      return true;
+    }
+    // migración de la versión de un solo protocolo
+    const viejo = JSON.parse(localStorage.getItem(CLAVE_VIEJA) || "null");
+    if(viejo && viejo.totalTests > 0){
+      S = Object.assign(estadoNuevo(), viejo);
+      sesiones.A = S;
+      activa = "A";
+      guardarEstado();
+      try{ localStorage.removeItem(CLAVE_VIEJA); }catch(e){}
+      return true;
+    }
   }catch(e){}
   return false;
 }
+
+/* Antes había dos formas de entregar ("pie" y "carpetas"). Ahora la entrega es
+   siempre en carpetas y lo único que se elige es si la foto lleva el pie. */
+function migrarModo(s){
+  if(s && s.conPie === undefined){
+    s.conPie = (s.modo !== "carpetas");
+    delete s.modo;
+  }
+  return s;
+}
+
+const nombreDe = r => {
+  const s = sesiones[r];
+  if(!s) return "";
+  return s.protocolo || ("Protocolo " + r);
+};
 
 const casosDe = t => S.casos[t] || 0;
 
@@ -743,6 +921,82 @@ async function estamparDesdeBlob(blob, linea1){
 }
 
 /* =======================================================================
+   Armador de ZIP (modo carpetas)
+   Método "store", sin recomprimir: los JPEG ya vienen comprimidos, así que
+   el zip solo los empaqueta. Escrito a mano porque la app no usa librerías.
+   ======================================================================= */
+const TABLA_CRC = (() => {
+  const t = new Uint32Array(256);
+  for(let n = 0; n < 256; n++){
+    let c = n;
+    for(let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(b){
+  let c = 0xFFFFFFFF;
+  for(let i = 0; i < b.length; i++) c = TABLA_CRC[(c ^ b[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function fechaZip(d){
+  return {
+    hora: ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xFFFF,
+    fecha: (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xFFFF
+  };
+}
+
+/* entradas: [{ nombre, datos:Uint8Array }] — las barras del nombre crean carpetas */
+function armarZip(entradas){
+  const cod = new TextEncoder();
+  const partes = [], central = [];
+  let offset = 0;
+  const f = fechaZip(new Date());
+
+  entradas.forEach(e => {
+    const nombre = cod.encode(e.nombre);
+    const crc = crc32(e.datos);
+    const tam = e.datos.length;
+
+    const l = new DataView(new ArrayBuffer(30));
+    l.setUint32(0, 0x04034b50, true); l.setUint16(4, 20, true);
+    l.setUint16(6, 0x0800, true);              // nombres en UTF-8
+    l.setUint16(8, 0, true);                   // sin compresión
+    l.setUint16(10, f.hora, true); l.setUint16(12, f.fecha, true);
+    l.setUint32(14, crc, true); l.setUint32(18, tam, true); l.setUint32(22, tam, true);
+    l.setUint16(26, nombre.length, true); l.setUint16(28, 0, true);
+    partes.push(new Uint8Array(l.buffer), nombre, e.datos);
+
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true);
+    c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true);
+    c.setUint16(12, f.hora, true); c.setUint16(14, f.fecha, true);
+    c.setUint32(16, crc, true); c.setUint32(20, tam, true); c.setUint32(24, tam, true);
+    c.setUint16(28, nombre.length, true); c.setUint16(30, 0, true); c.setUint16(32, 0, true);
+    c.setUint16(34, 0, true); c.setUint16(36, 0, true); c.setUint32(38, 0, true);
+    c.setUint32(42, offset, true);
+    central.push(new Uint8Array(c.buffer), nombre);
+
+    offset += 30 + nombre.length + tam;
+  });
+
+  let tamCentral = 0;
+  central.forEach(p => tamCentral += p.length);
+
+  const fin = new DataView(new ArrayBuffer(22));
+  fin.setUint32(0, 0x06054b50, true); fin.setUint16(4, 0, true); fin.setUint16(6, 0, true);
+  fin.setUint16(8, entradas.length, true); fin.setUint16(10, entradas.length, true);
+  fin.setUint32(12, tamCentral, true); fin.setUint32(16, offset, true); fin.setUint16(20, 0, true);
+
+  return new Blob(partes.concat(central, [new Uint8Array(fin.buffer)]), { type: "application/zip" });
+}
+
+const tresDig = n => String(n).padStart(3, "0");
+const baseProtocolo = () => limpiarNombre(S.protocolo) || "Protocolo";
+
+/* =======================================================================
    Guardado en el teléfono
    ======================================================================= */
 function descargar(blob, nombre){
@@ -754,6 +1008,19 @@ function descargar(blob, nombre){
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 20000);
+}
+
+const pausa = ms => new Promise(r => setTimeout(r, ms));
+
+/* Android descarta las descargas que le llegan en ráfaga: disparándolas todas
+   juntas se pierden algunas en silencio, sin ningún aviso. Por eso van de a
+   una y espaciadas, mostrando el avance. */
+async function descargarEnSerie(archivos){
+  for(let i = 0; i < archivos.length; i++){
+    descargar(archivos[i], archivos[i].name);
+    avisar("Descargando " + (i + 1) + " de " + archivos.length + "…");
+    await pausa(700);
+  }
 }
 
 
@@ -768,46 +1035,127 @@ function descargar(blob, nombre){
 let pendientes = [];          // [{id, nombre, blob}]
 let bd = null;
 
+const BD_VERSION = 2;   // v2 agregó la papelera
+
 function abrirBD(){
   if(bd) return Promise.resolve(bd);
   return new Promise((res, rej) => {
-    const p = indexedDB.open("evidencias", 1);
+    const p = indexedDB.open(NOMBRE_BD, BD_VERSION);
     p.onupgradeneeded = () => {
-      if(!p.result.objectStoreNames.contains("pendientes"))
-        p.result.createObjectStore("pendientes", { keyPath: "id", autoIncrement: true });
+      const db = p.result;
+      if(!db.objectStoreNames.contains("pendientes"))
+        db.createObjectStore("pendientes", { keyPath: "id", autoIncrement: true });
+      if(!db.objectStoreNames.contains("papelera"))
+        db.createObjectStore("papelera", { keyPath: "id", autoIncrement: true });
     };
     p.onsuccess = () => { bd = p.result; res(bd); };
     p.onerror = () => rej(p.error);
   });
 }
 
-function conTienda(modo, fn){
+function conAlmacen(tienda, modo, fn){
   return abrirBD().then(db => new Promise((res, rej) => {
-    const tx = db.transaction("pendientes", modo);
-    const pedido = fn(tx.objectStore("pendientes"));
+    const tx = db.transaction(tienda, modo);
+    const pedido = fn(tx.objectStore(tienda));
     tx.oncomplete = () => res(pedido && pedido.result);
     tx.onerror = () => rej(tx.error);
   }));
 }
 
-async function encolar(blob){
-  const reg = { blob: blob, test: S.test, caso: S.caso, ts: Date.now() };
-  try{ reg.id = await conTienda("readwrite", t => t.add(reg)); }
-  catch(e){ reg.id = "mem-" + Date.now() + "-" + Math.random(); }
-  pendientes.push(reg);
-  pintarPendientes();
+const conTienda   = (modo, fn) => conAlmacen("pendientes", modo, fn);
+const conPapelera = (modo, fn) => conAlmacen("papelera", modo, fn);
+
+let avisadoEspacio = false;
+
+/* Avisa antes de que el teléfono se quede sin lugar. Sin esto, la primera
+   señal de que no hay espacio sería una foto perdida. */
+async function revisarEspacio(){
+  try{
+    if(!navigator.storage || !navigator.storage.estimate) return;
+    const e = await navigator.storage.estimate();
+    if(!e.quota) return;
+    const libreMB = (e.quota - (e.usage || 0)) / 1048576;
+    if(libreMB < 150 && !avisadoEspacio){
+      avisadoEspacio = true;
+      avisar("Queda poco espacio en el teléfono: exportá lo que tenés en cola", true);
+    }
+    if(libreMB > 300) avisadoEspacio = false;
+  }catch(e){}
 }
 
-const sinUrl = p => ({ id: p.id, blob: p.blob, test: p.test, caso: p.caso, ts: p.ts });
+async function encolar(blob){
+  const reg = { blob: blob, sesion: activa, test: S.test, caso: S.caso, ts: Date.now() };
+  try{
+    reg.id = await conTienda("readwrite", t => t.add(reg));
+  }catch(e){
+    // no se pudo persistir: la foto vive solo en memoria y se pierde si la app se cierra
+    reg.id = "mem-" + Date.now() + "-" + Math.random();
+    reg.soloEnMemoria = true;
+  }
+  pendientes.push(reg);
+  pintarPendientes();
+  revisarEspacio();
+  return reg;
+}
+
+const sinUrl = p => ({ id: p.id, blob: p.blob, sesion: p.sesion || "A",
+                       test: p.test, caso: p.caso, ts: p.ts });
 
 /* Vacía la cola por completo. La usa el arranque de un protocolo nuevo: si no,
    las fotos que quedaron sin exportar reaparecen y se suman a los contadores
    del protocolo siguiente. */
+/* Borra solo las del protocolo activo: las del otro no se tocan. */
 async function descartarPendientes(){
+  const ids = pendientes.map(p => p.id);
   pendientes.forEach(p => { if(p.url) URL.revokeObjectURL(p.url); });
   pendientes = [];
-  try{ await conTienda("readwrite", t => t.clear()); }catch(e){}
+  try{ await conTienda("readwrite", t => { ids.forEach(id => t.delete(id)); }); }catch(e){}
   pintarPendientes();
+}
+
+/* =======================================================================
+   Papelera
+   Las fotos exportadas no se borran: quedan acá por si alguna descarga se
+   perdió y hay que reexportarla. Se conservan las últimas TOPE y las más
+   viejas caen solas, para que no crezca sin límite.
+   ======================================================================= */
+/* 80 fotos son unos 160 MB en disco: pesa poco y da una ventana amplia para
+   darse cuenta de que faltó alguna. La lista NO muestra miniaturas a propósito:
+   decodificar 80 imágenes de 3000 px de golpe puede tumbar la app, y para
+   detectar un faltante lo que se compara contra la carpeta es el nombre. */
+const TOPE_PAPELERA = 80;
+
+async function aPapelera(registros, nombres, pies){
+  try{
+    await conPapelera("readwrite", t => {
+      registros.forEach((p, i) => {
+        t.add({
+          blob: p.blob, test: p.test, caso: p.caso,
+          // se guarda el pie exacto: si hay que reexportar, sale idéntica
+          pie: (pies && pies[i]) || "",
+          nombre: (nombres && nombres[i]) || "",
+          ts: Date.now() + i          // conserva el orden dentro del lote
+        });
+      });
+    });
+    await podarPapelera();
+  }catch(e){}
+}
+
+/* Las claves son autoincrementales, así que las más viejas son las primeras:
+   se puede podar sin traer las imágenes a memoria. */
+async function podarPapelera(){
+  try{
+    const claves = await conPapelera("readonly", t => t.getAllKeys());
+    if(!claves || claves.length <= TOPE_PAPELERA) return;
+    const sobran = claves.slice(0, claves.length - TOPE_PAPELERA);
+    await conPapelera("readwrite", t => { sobran.forEach(k => t.delete(k)); });
+  }catch(e){}
+}
+
+async function contarPapelera(){
+  try{ return (await conPapelera("readonly", t => t.count())) || 0; }
+  catch(e){ return 0; }
 }
 
 /* Pregunta lo que corresponda antes de reiniciar. Devuelve true si hay que seguir. */
@@ -856,15 +1204,29 @@ async function moverFotos(ids, destTest, destCaso){
          " a Test " + destTest + " - Prueba " + destCaso);
 }
 
-async function recuperarPendientes(){
+/* Carga SOLO las fotos del protocolo activo: las del otro quedan guardadas
+   esperando a que cambies. Así el resto de la app sigue trabajando sobre una
+   sola cola, sin filtrar en cada operación. */
+async function recuperarPendientes(avisando){
   try{
     const guardados = await conTienda("readonly", t => t.getAll());
-    if(guardados && guardados.length){
-      pendientes = guardados;
-      pintarPendientes();
-      avisar(pendientes.length + " fotos sin guardar de antes", true);
+    pendientes = (guardados || []).filter(p => (p.sesion || "A") === activa);
+    pintarPendientes();
+    if(avisando !== false && pendientes.length){
+      avisar(pendientes.length +
+             (pendientes.length === 1 ? " foto sin guardar de antes" : " fotos sin guardar de antes"), true);
     }
   }catch(e){}
+}
+
+/* Cuántas fotos tiene en cola cada protocolo, para mostrarlo en el selector. */
+async function colasPorRanura(){
+  const cuenta = { A: 0, B: 0 };
+  try{
+    const todos = await conTienda("readonly", t => t.getAll());
+    (todos || []).forEach(p => { const r = p.sesion || "A"; if(cuenta[r] !== undefined) cuenta[r]++; });
+  }catch(e){}
+  return cuenta;
 }
 
 /* Saca de la cola SOLO las fotos de este lote, y verifica que el borrado
@@ -883,27 +1245,94 @@ async function borrarLote(lote){
   }
 }
 
-/* Pregunta explícita después del menú de compartir.
-   iOS no informa de forma confiable si el guardado salió bien: a veces avisa
-   "cancelado" aunque las fotos se hayan guardado. Confiar en ese aviso era lo
-   que dejaba fotos ya guardadas en la cola. Lo único confiable es el usuario. */
-let resolverConfirma = null;
+/* =======================================================================
+   Pantalla de la papelera
+   ======================================================================= */
+let enPapelera = [];        // lo que se está mostrando
+let elegidasPapelera = [];
 
-function confirmarGuardado(n){
-  return new Promise(res => {
-    resolverConfirma = res;
-    $("#txtConfirma").textContent =
-      "Se enviaron " + n + (n === 1 ? " foto" : " fotos") +
-      " al menú de guardado. ¿Llegaron bien al teléfono?";
-    $("#modalConfirma").classList.remove("oculto");
-  });
+async function abrirPapelera(){
+  try{
+    enPapelera = (await conPapelera("readonly", t => t.getAll())) || [];
+  }catch(e){ enPapelera = []; }
+  enPapelera.sort((a, b) => b.ts - a.ts);        // las más nuevas primero
+  elegidasPapelera = [];
+  pintarPapelera();
+  $("#modalPapelera").classList.remove("oculto");
 }
 
-function responderConfirma(ok){
-  $("#modalConfirma").classList.add("oculto");
-  const f = resolverConfirma;
-  resolverConfirma = null;
-  if(f) f(ok);
+function pintarPapelera(){
+  const cont = $("#listaPapelera");
+  cont.innerHTML = "";
+
+  // blob.size no decodifica la imagen: es solo el dato del archivo
+  const mb = enPapelera.reduce((s, p) => s + (p.blob ? p.blob.size : 0), 0) / 1048576;
+  $("#txtPapelera").textContent = enPapelera.length
+    ? "Últimas " + enPapelera.length + (enPapelera.length === 1 ? " foto exportada" : " fotos exportadas") +
+      " (" + (mb < 0.5 ? "menos de 1 MB"
+                       : (mb < 10 ? Math.round(mb * 10) / 10 : Math.round(mb)) + " MB") + ")." +
+      " Tocá las que falten en la carpeta y volvé a exportarlas."
+    : "No hay fotos exportadas guardadas todavía.";
+
+  enPapelera.forEach(p => {
+    const fila = document.createElement("button");
+    fila.className = "filaPap" + (elegidasPapelera.indexOf(p.id) !== -1 ? " sel" : "");
+    fila.innerHTML =
+      '<span class="tic">' + (elegidasPapelera.indexOf(p.id) !== -1 ? "●" : "○") + '</span>' +
+      '<span class="nom">' + (p.nombre || "sin nombre") + '</span>';
+    fila.addEventListener("click", () => {
+      const i = elegidasPapelera.indexOf(p.id);
+      if(i === -1) elegidasPapelera.push(p.id); else elegidasPapelera.splice(i, 1);
+      pintarPapelera();
+    });
+    cont.appendChild(fila);
+  });
+
+  const n = elegidasPapelera.length;
+  $("#btnReexportar").classList.toggle("oculto", n === 0);
+  $("#btnReexportar").textContent = "Volver a exportar " + n + (n === 1 ? " foto" : " fotos");
+  $("#btnVaciarPapelera").classList.toggle("oculto", enPapelera.length === 0);
+}
+
+/* Reexporta tal cual estaban: mismo pie y mismo nombre de archivo. */
+async function reexportarDePapelera(){
+  const lote = enPapelera.filter(p => elegidasPapelera.indexOf(p.id) !== -1);
+  if(!lote.length) return;
+  avisar("Preparando " + lote.length + (lote.length === 1 ? " foto…" : " fotos…"));
+
+  const archivos = [];
+  for(const p of lote){
+    try{
+      // se reexporta con el pie que tenía; si no llevaba, sale tal cual
+      const salida = p.pie ? await estamparDesdeBlob(p.blob, p.pie) : p.blob;
+      archivos.push(new File([salida], p.nombre || "foto.jpg", { type: "image/jpeg" }));
+    }catch(e){}
+  }
+  if(!archivos.length){ avisar("No se pudieron preparar", true); return; }
+
+  $("#modalPapelera").classList.add("oculto");
+  if(S.guardado === "compartir" && navigator.canShare && navigator.canShare({ files: archivos })){
+    navigator.share({ files: archivos })
+      .then(() => avisar(archivos.length + " reexportadas"))
+      .catch(() => avisar("Cancelado", true));
+  }else{
+    await descargarEnSerie(archivos);
+    avisar(archivos.length + (archivos.length === 1 ? " foto reexportada" : " fotos reexportadas"));
+  }
+}
+
+async function vaciarPapelera(){
+  const ok = await preguntar(
+    "¿Vaciar la papelera?",
+    "Se borran las " + enPapelera.length + " fotos exportadas que quedaban guardadas por las dudas. " +
+    "Las que ya bajaste al teléfono no se tocan.",
+    "Vaciar", "Cancelar");
+  if(!ok) return;
+  try{ await conPapelera("readwrite", t => t.clear()); }catch(e){}
+  enPapelera = [];
+  elegidasPapelera = [];
+  pintarPapelera();
+  avisar("Papelera vaciada");
 }
 
 /* Estampa todas las pendientes con la numeración que tienen AHORA y deja los
@@ -912,26 +1341,84 @@ function responderConfirma(ok){
    sale dentro del gesto del usuario, que es lo que exige Safari. */
 let loteListo = null;
 
+/* Un zip por test, siempre. Si el protocolo se creó con pie, cada foto se
+   estampa acá con el mismo número que lleva su archivo. La numeración es
+   corrida en todo el protocolo y se asigna en este momento, así borrar o mover
+   fotos antes de exportar no deja huecos. */
+const notaDe = (t, c) => (S.notas[t] && S.notas[t][c]) || "";
+
+function csvDeIndice(filas){
+  let s = "Test;Prueba;Imagen\n";
+  filas.forEach(f => { s += dosDig(f.test) + ";" + dosDig(f.caso) + ";" + tresDig(f.n) + "\n"; });
+  return s;
+}
+
 async function prepararLote(){
   const orden = pendientes.slice().sort((a, b) =>
     (a.test - b.test) || (a.caso - b.caso) || (a.ts - b.ts));
 
-  const contador = {};
-  const archivos = [];
+  const base = baseProtocolo();
+  const porTest = {};
+  const registros = [], fallidas = [], asignaciones = [], nombresPorFoto = [], piesPorFoto = [];
+  let numero = S.proximaImagen;
+
   for(let i = 0; i < orden.length; i++){
     const p = orden[i];
-    const clave = p.test + "/" + p.caso;
-    if(contador[clave] === undefined) contador[clave] = exportadasDe(p.test, p.caso);
-    const n = ++contador[clave];
+    const n = numero;
+    // el pie usa el MISMO número que el archivo, para que nunca se contradigan
+    const pie = "Test " + p.test + " - Prueba " + p.caso + " - Imagen " + tresDig(n);
 
-    const pie = "Test " + p.test + " - Prueba " + p.caso + " - Imagen " + n;
-    const nombre = prefijoProtocolo() +
-                   "Test_" + dosDig(p.test) + "_Prueba_" + dosDig(p.caso) +
-                   "_Imagen_" + dosDig(n) + ".jpg";
-    const estampada = await estamparDesdeBlob(p.blob, pie);
-    archivos.push(new File([estampada], nombre, { type: "image/jpeg" }));
+    let datos;
+    try{
+      const salida = S.conPie ? await estamparDesdeBlob(p.blob, pie) : p.blob;
+      datos = new Uint8Array(await salida.arrayBuffer());
+    }catch(e){ fallidas.push(p); continue; }
+
+    numero++;
+    const carpeta = base + "_Test_" + dosDig(p.test);
+    const archivo = base + "_Imagen_" + tresDig(n) + ".jpg";
+
+    if(!porTest[p.test]) porTest[p.test] = { entradas: [], filas: [] };
+    porTest[p.test].entradas.push({
+      nombre: carpeta + "/Prueba_" + dosDig(p.caso) + "/" + archivo,
+      datos: datos
+    });
+    porTest[p.test].filas.push({ test: p.test, caso: p.caso, n: n });
+
+    registros.push(p);
+    asignaciones.push({ test: p.test, caso: p.caso, n: n });
+    nombresPorFoto.push(archivo);
+    piesPorFoto.push(S.conPie ? pie : "");
   }
-  loteListo = { registros: orden, archivos: archivos };
+
+  const archivos = [];
+  Object.keys(porTest).map(Number).sort((a, b) => a - b).forEach(t => {
+    const carpeta = base + "_Test_" + dosDig(t);
+    const g = porTest[t];
+
+    // notas del test, si hay alguna
+    const conNota = [];
+    for(let c = 1; c <= Math.max(casosDe(t), 1); c++){
+      const nota = notaDe(t, c).trim();
+      if(nota) conNota.push("Prueba " + c + ": " + nota);
+    }
+    if(conNota.length){
+      g.entradas.push({
+        nombre: carpeta + "/notas.txt",
+        datos: new TextEncoder().encode(
+          "Test " + t + (S.protocolo ? " — " + S.protocolo : "") + "\n\n" + conNota.join("\n") + "\n")
+      });
+    }
+
+    g.entradas.push({
+      nombre: carpeta + "/indice.csv",
+      datos: new TextEncoder().encode(csvDeIndice(g.filas))
+    });
+
+    archivos.push(new File([armarZip(g.entradas)], carpeta + ".zip", { type: "application/zip" }));
+  });
+
+  loteListo = { registros, archivos, fallidas, asignaciones, nombresPorFoto, piesPorFoto };
   return loteListo;
 }
 
@@ -950,40 +1437,65 @@ function anotarExportadas(registros){
 
 /* Devuelve true si el lote quedó guardado. El share sale dentro del gesto del
    usuario: los archivos ya están estampados en memoria, sin await antes. */
-function cerrarLote(lote){
+function cerrarLote(lote, nombres, asignaciones, pies){
   anotarExportadas(lote);
-  return borrarLote(lote).then(() => {
-    avisar(lote.length + (lote.length === 1 ? " foto guardada" : " fotos guardadas"));
-    return true;
-  });
+  // La numeración corrida y el índice se consolidan recién acá: si la
+  // exportación se cancela, los números no se consumen.
+  if(asignaciones && asignaciones.length){
+    asignaciones.forEach(a => S.indice.push(a));
+    S.proximaImagen = asignaciones[asignaciones.length - 1].n + 1;
+    // las notas de un test ya exportado dejan de ser editables
+    guardarEstado();
+  }
+  loteListo = null;               // ya se exportó: que no quede un lote viejo a mano
+  return aPapelera(lote, nombres, pies)
+    .then(() => borrarLote(lote))
+    .then(() => {
+      avisar(lote.length + (lote.length === 1 ? " foto guardada" : " fotos guardadas"));
+      return true;
+    });
 }
 
+/* Sin esto, tocar "Guardar" dos veces exporta el mismo lote dos veces:
+   descargas duplicadas y contadores inflados. */
+let exportando = false;
+
 function guardarPendientes(){
+  if(exportando) return Promise.resolve(false);
   if(!loteListo || !loteListo.archivos.length) return Promise.resolve(true);
   const lote = loteListo.registros;
   const archivos = loteListo.archivos;
+  const nombres = loteListo.nombresPorFoto;
+  const asignaciones = loteListo.asignaciones;
+  const pies = loteListo.piesPorFoto;
+  exportando = true;
+  return exportar(lote, archivos, nombres, asignaciones, pies)
+    .finally(() => { exportando = false; });
+}
+
+function exportar(lote, archivos, nombres, asignaciones, pies){
 
   const porMenu = S.guardado === "compartir" &&
                   navigator.canShare && navigator.canShare({ files: archivos });
 
+  // Ya no se pregunta "¿llegaron todas?": con tandas grandes esa verificación
+  // no se puede hacer de verdad y terminaba siendo un toque de más. La red es
+  // la papelera: lo exportado se conserva y se puede reexportar.
   if(!porMenu){                                   // Android / PC: descarga directa
-    archivos.forEach(a => descargar(a, a.name));
-    return cerrarLote(lote);
+    return descargarEnSerie(archivos).then(() => cerrarLote(lote, nombres, asignaciones, pies));
   }
 
-  return navigator.share({ files: archivos })
-    .then(() => ({ ok: true }), e => ({ ok: false, aborto: e && e.name === "AbortError" }))
-    .then(res => {
-      // Si iOS confirma, se limpia solo. Si dice "cancelado" no alcanza para
-      // creerle: por Fotos avisa cancelación aunque las haya guardado, y ahí
-      // borrar la cola a ciegas dejaba fotos duplicadas. En ese caso, preguntamos.
-      if(res.ok) return cerrarLote(lote);
-      return confirmarGuardado(lote.length).then(ok => {
-        if(ok) return cerrarLote(lote);
-        avisar("Siguen pendientes", true);
-        return false;
-      });
-    });
+  return navigator.share({ files: archivos }).then(
+    () => cerrarLote(lote, nombres, asignaciones, pies),
+    e => {
+      if(e && e.name === "AbortError"){
+        avisar("Cancelado: las fotos siguen en la cola", true);
+      }else{
+        avisar("No se pudieron guardar. Probá de a menos.", true);
+      }
+      return false;
+    }
+  );
 }
 
 function pintarPendientes(){
@@ -1001,21 +1513,46 @@ function pintarPendientes(){
 
 /* Antes de detener o finalizar, ofrece guardar lo que quedó en la cola. */
 let trasGuardar = null;
+let preparando = false;
 
 async function pedirGuardado(continuar){
+  if(preparando || exportando) return;              // evita dobles toques
   if(!pendientes.length){ continuar(); return; }
+  preparando = true;
   trasGuardar = continuar;
   const n = pendientes.length;
 
   // se estampan acá, con la numeración final, antes de ofrecer el botón
   avisar("Preparando " + n + (n === 1 ? " foto…" : " fotos…"));
-  try{ await prepararLote(); }
-  catch(e){ avisar("No se pudieron preparar las fotos", true); return; }
+  let listo;
+  try{
+    listo = await prepararLote();
+  }catch(e){
+    avisar("No se pudieron preparar las fotos", true);
+    trasGuardar = null;
+    preparando = false;
+    return;
+  }
+  preparando = false;
 
+  if(!listo.archivos.length){
+    avisar("Ninguna foto se pudo preparar. Probá de nuevo.", true);
+    trasGuardar = null;
+    return;
+  }
+
+  // en modo carpetas los archivos son zips, así que se cuentan las fotos
+  const listas = listo.registros.length;
   $("#txtPendientes").textContent =
-    n + (n === 1 ? " foto todavía no está" : " fotos todavía no están") +
-    " guardada" + (n === 1 ? "" : "s") + " en el teléfono.";
-  $("#btnGuardarAhora").textContent = "Guardar " + n + (n === 1 ? " foto" : " fotos") + " ahora";
+    listas + (listas === 1 ? " foto todavía no está" : " fotos todavía no están") +
+    " guardada" + (listas === 1 ? "" : "s") + " en el teléfono." +
+    (listo.fallidas.length
+      ? " " + listo.fallidas.length +
+        (listo.fallidas.length === 1 ? " no se pudo preparar y queda" : " no se pudieron preparar y quedan") +
+        " en la cola."
+      : "");
+  $("#btnGuardarAhora").textContent =
+    "Guardar " + listas + (listas === 1 ? " foto" : " fotos") + " ahora";
   $("#modalPendientes").classList.remove("oculto");
 }
 
@@ -1124,9 +1661,40 @@ function anguloPantalla(){
 }
 
 function aplicarLadoPanel(){
-  let izquierda = anguloPantalla() === 90;
+  // Verificado en campo: con ángulo 270 el borde inferior del teléfono queda a
+  // la izquierda, y ahí va la botonera. La convención inversa dejaba los botones
+  // del lado del lente en las dos direcciones de giro.
+  let izquierda = anguloPantalla() === 270;
   if(S.invertirLado) izquierda = !izquierda;
   $("#app").classList.toggle("panelIzq", izquierda);
+}
+
+/* =======================================================================
+   Notas por prueba (solo modo carpetas)
+   ======================================================================= */
+function abrirNota(){
+  $("#tituloNota").textContent = "Nota · Test " + S.test + " - Prueba " + S.caso;
+  $("#txtNota").value = notaDe(S.test, S.caso);
+  $("#modalNota").classList.remove("oculto");
+  setTimeout(() => $("#txtNota").focus(), 60);
+}
+
+function guardarNota(){
+  const txt = $("#txtNota").value.trim();
+  if(!S.notas[S.test]) S.notas[S.test] = {};
+  if(txt) S.notas[S.test][S.caso] = txt;
+  else delete S.notas[S.test][S.caso];
+  guardarEstado();
+  $("#modalNota").classList.add("oculto");
+  pintarBotonNota();
+  revivirVideo();
+  avisar(txt ? "Nota guardada" : "Nota borrada");
+}
+
+function pintarBotonNota(){
+  const b = $("#btnNota");
+  b.classList.remove("oculto");          // las notas existen en los dos casos
+  b.classList.toggle("conNota", !!notaDe(S.test, S.caso));
 }
 
 /* En iOS, cualquier diálogo o cambio de foco puede dejar el video pausado sin
@@ -1169,6 +1737,118 @@ function modoCamaraNativa(motivo){
   $("#sinCamara").classList.remove("oculto");
   $("#sinCamaraTx").innerHTML =
     motivo + "<br><br>Se usa la <b>cámara del sistema</b>: tocá el botón blanco, sacá la foto y volvé.";
+}
+
+function pintarAyudaModo(){
+  const conPie = $("#selModo").value === "pie";
+  $("#ayudaModo").innerHTML =
+    "Al cerrar cada test baja un <b>zip</b> con una subcarpeta por prueba, más notas e índice. " +
+    (conPie
+      ? "Cada foto lleva <b>Test N - Prueba n - Imagen NNN</b> estampado abajo."
+      : "Las fotos salen limpias, sin nada encima.");
+}
+
+/* Índice maestro: todo lo exportado del protocolo, para cruzar contra el informe. */
+function descargarIndiceMaestro(){
+  if(!S.indice || !S.indice.length){ avisar("Todavía no exportaste nada", true); return; }
+  const filas = S.indice.slice().sort((a, b) => a.n - b.n);
+  const csv = "﻿" + csvDeIndice(filas);
+  descargar(new Blob([csv], { type: "text/csv" }), baseProtocolo() + "_indice.csv");
+  avisar("Índice descargado");
+}
+
+/* =======================================================================
+   Dos protocolos en paralelo
+   ======================================================================= */
+async function cambiarProtocolo(ranura){
+  if(ranura === activa){ $("#modalProtocolos").classList.add("oculto"); return; }
+
+  detenerCamara();
+  S.capturando = false;
+  guardarEstado();                       // deja guardado dónde estabas
+
+  pendientes.forEach(p => { if(p.url) URL.revokeObjectURL(p.url); });
+  pendientes = [];
+  salirSeleccion();
+
+  activa = ranura;
+  S = sesiones[ranura] || estadoNuevo();
+  sesiones[ranura] = S;
+  guardarEstado();
+
+  await recuperarPendientes(false);
+  $("#modalProtocolos").classList.add("oculto");
+
+  if(!sesiones[ranura].totalTests || !S.casos){ S.totalTests = S.totalTests || 10; }
+  mostrarSeleccion();
+  avisar("Protocolo: " + nombreDe(ranura));
+}
+
+async function abrirProtocolos(){
+  const cuenta = await colasPorRanura();
+  const cont = $("#listaProtocolos");
+  cont.innerHTML = "";
+
+  RANURAS.forEach(r => {
+    const s = sesiones[r];
+    const b = document.createElement("button");
+    b.className = "tarjeta" + (r === activa ? " activa" : "");
+    const detalle = !s
+      ? "Vacío · tocá para crearlo"
+      : s.totalTests + " tests · " +
+        (cuenta[r] ? cuenta[r] + (cuenta[r] === 1 ? " foto en cola" : " fotos en cola") : "sin fotos en cola");
+    b.innerHTML =
+      '<span class="num">' + r + '</span>' +
+      '<span class="d"><b>' + (s ? nombreDe(r) : "Protocolo " + r) + '</b><span>' + detalle + '</span></span>' +
+      (r === activa ? '<span class="tic">●</span>' : '');
+    b.addEventListener("click", () => {
+      if(r === activa){ $("#modalProtocolos").classList.add("oculto"); return; }
+      if(!sesiones[r]){ crearProtocolo(r); return; }
+      cambiarProtocolo(r);
+    });
+    cont.appendChild(b);
+  });
+
+  $("#modalProtocolos").classList.remove("oculto");
+}
+
+/* Crear el segundo protocolo: se pide el nombre y la cantidad de tests. */
+let ranuraNueva = null;
+
+function crearProtocolo(ranura){
+  ranuraNueva = ranura;
+  $("#modalProtocolos").classList.add("oculto");
+  $("#tituloNuevoProt").textContent = "Nuevo protocolo (" + ranura + ")";
+  $("#inpNuevoNombre").value = "";
+  $("#inpNuevoTests").value = "10";
+  $("#modalNuevoProt").classList.remove("oculto");
+  setTimeout(() => $("#inpNuevoNombre").focus(), 60);
+}
+
+async function confirmarProtocoloNuevo(){
+  const n = parseInt($("#inpNuevoTests").value, 10);
+  if(!(n >= 1 && n <= 999)){ avisar("Poné un número de tests válido", true); return; }
+  const ranura = ranuraNueva || "B";
+  $("#modalNuevoProt").classList.add("oculto");
+
+  guardarEstado();
+  pendientes.forEach(p => { if(p.url) URL.revokeObjectURL(p.url); });
+  pendientes = [];
+  salirSeleccion();
+  detenerCamara();
+
+  activa = ranura;
+  S = estadoNuevo();
+  S.totalTests = n;
+  S.protocolo = $("#inpNuevoNombre").value.trim();
+  S.conPie = $("#selModoNuevo").value === "pie";
+  S.guardado = esIOS ? "compartir" : "descargar";
+  sesiones[ranura] = S;
+  guardarEstado();
+
+  await recuperarPendientes(false);
+  mostrarSeleccion();
+  avisar("Protocolo: " + nombreDe(ranura));
 }
 
 /* =======================================================================
@@ -1216,7 +1896,7 @@ function pintarListaTests(){
 
   $("#btnIniciar").textContent =
     (casosDe(S.test) > 0 ? "Reanudar Test " : "Iniciar Test ") + S.test;
-  $("#selTitulo").textContent = S.protocolo ? S.protocolo : "Elegí el test";
+  $("#selTitulo").textContent = nombreDe(activa) || "Elegí el test";
   $("#selResumen").textContent =
     S.totalTests + " tests · " + conEvidencia + " con evidencias" +
     (S.finalizado ? " · finalizado" : "");
@@ -1382,12 +2062,19 @@ function pintarCaptura(){
   const nCasos = casosDe(S.test);
   const sacadas = fotosDe(S.test, S.caso);
 
+  $("#protActivo").textContent = nombreDe(activa);
   $("#tituloTest").textContent = "Test " + S.test + " · Prueba " + S.caso;
+  // en modo carpetas no se estampa nada, así que no hay banda que previsualizar
+  $("#marcaAgua").classList.toggle("oculto", !S.conPie);
+  pintarBotonNota();
   $("#subTest").textContent =
     "Prueba " + S.caso + " de " + nCasos + " · " +
     (sacadas === 0 ? "sin fotos" : sacadas + (sacadas === 1 ? " foto" : " fotos"));
 
-  $("#maL1").textContent = "Test " + S.test + " - Prueba " + S.caso + " - Imagen " + (sacadas + 1);
+  // el número es corrido en todo el protocolo, así que la próxima foto sería
+  // la que sigue a lo ya exportado más lo que hay esperando en la cola
+  $("#maL1").textContent = "Test " + S.test + " - Prueba " + S.caso +
+                           " - Imagen " + tresDig(S.proximaImagen + pendientes.length);
 
   const ant = $("#btnAnterior"), sig = $("#btnSiguiente");
   ant.disabled = S.caso <= 1;
@@ -1483,13 +2170,19 @@ async function fotoDesdeArchivo(archivo){
 }
 
 async function registrarFoto(blob, t){
-  await encolar(blob);           // cruda: se estampa y numera al exportar
+  const reg = await encolar(blob);   // cruda: se estampa y numera al exportar
 
   S.finalizado = false;          // si volviste a sacar fotos, el protocolo sigue abierto
   guardarEstado();
   pintarCaptura();
   pintarTira();
-  avisar("Test " + S.test + " · Prueba " + S.caso + " · Imagen " + t.nImagen);
+
+  // el aviso de falla tiene que ser el último, o lo pisa el de "foto sacada"
+  if(reg && reg.soloEnMemoria){
+    avisar("Sin espacio: esta foto NO quedó guardada. Exportá antes de cerrar la app.", true);
+  }else{
+    avisar("Test " + S.test + " · Prueba " + S.caso + " · Imagen " + t.nImagen);
+  }
 }
 
 /* =======================================================================
@@ -1579,7 +2272,9 @@ function pintarTira(){
     .forEach(p => {
       if(!p.url) p.url = URL.createObjectURL(p.blob);
       const cont = document.createElement("div");
-      cont.className = "mini" + (seleccion.indexOf(p.id) !== -1 ? " sel" : "");
+      cont.className = "mini" +
+        (seleccion.indexOf(p.id) !== -1 ? " sel" : "") +
+        (p.soloEnMemoria ? " riesgo" : "");
 
       const im = document.createElement("img");
       im.src = p.url;
@@ -1622,6 +2317,8 @@ $("#btnEmpezar").addEventListener("click", async () => {
   await descartarPendientes();
   S.totalTests = n;
   S.protocolo = $("#nombreProtocolo").value.trim();
+  S.conPie = $("#selModo").value === "pie";
+  S.proximaImagen = 1; S.notas = {}; S.indice = [];
   S.test = 1; S.caso = 1; S.capturando = false; S.finalizado = false;
   S.casos = {}; S.ultimoCaso = {}; S.conteos = {};
   S.guardado = esIOS ? "compartir" : "descargar";
@@ -1662,8 +2359,26 @@ $("#btnGuardarAhora").addEventListener("click", () => {
   guardarPendientes().then(ok => { if(ok) seguirTrasGuardado(); });
 });
 $("#btnSeguirSinGuardar").addEventListener("click", seguirTrasGuardado);
-$("#btnSiSeGuardaron").addEventListener("click", () => responderConfirma(true));
-$("#btnNoSeGuardaron").addEventListener("click", () => responderConfirma(false));
+$("#btnNota").addEventListener("click", abrirNota);
+$("#btnGuardarNota").addEventListener("click", guardarNota);
+$("#btnBorrarNota").addEventListener("click", () => { $("#txtNota").value = ""; guardarNota(); });
+$("#btnCerrarNota").addEventListener("click", () => {
+  $("#modalNota").classList.add("oculto");
+  revivirVideo();
+});
+
+$("#selModo").addEventListener("change", pintarAyudaModo);
+
+$("#btnProtocolos").addEventListener("click", abrirProtocolos);
+$("#btnCerrarProtocolos").addEventListener("click", () => $("#modalProtocolos").classList.add("oculto"));
+$("#btnConfirmarNuevoProt").addEventListener("click", confirmarProtocoloNuevo);
+$("#btnCancelarNuevoProt").addEventListener("click", () => $("#modalNuevoProt").classList.add("oculto"));
+
+$("#btnIndiceMaestro").addEventListener("click", descargarIndiceMaestro);
+$("#btnAbrirPapelera").addEventListener("click", abrirPapelera);
+$("#btnCerrarPapelera").addEventListener("click", () => $("#modalPapelera").classList.add("oculto"));
+$("#btnReexportar").addEventListener("click", reexportarDePapelera);
+$("#btnVaciarPapelera").addEventListener("click", vaciarPapelera);
 $("#btnConfirmarFinal").addEventListener("click", confirmarFinal);
 $("#btnCancelarFinal").addEventListener("click", () => $("#modalFinal").classList.add("oculto"));
 $("#btnVolverLista").addEventListener("click", mostrarSeleccion);
@@ -1674,7 +2389,6 @@ document.querySelectorAll(".modal").forEach(m => {
   m.addEventListener("click", e => {
     if(e.target !== m) return;
     // el de confirmación no se cierra sin respuesta: hay una promesa esperándola
-    if(m.id === "modalConfirma"){ responderConfirma(false); return; }
     if(m.id === "modalPregunta"){ responderPregunta(false); return; }
     m.classList.add("oculto");
     revivirVideo();
@@ -1741,6 +2455,8 @@ $("#btnAjustes").addEventListener("click", () => {
   $("#selGuardado").value = S.guardado;
   $("#inpTotalTests").value = S.totalTests;
   $("#inpProtocolo").value = S.protocolo || "";
+  contarPapelera().then(n => { $("#btnAbrirPapelera").textContent = "Papelera (" + n + ")"; });
+  $("#filaIndice").classList.remove("oculto");   // el índice existe siempre
   $("#ajustes").classList.remove("oculto");
 });
 $("#btnCerrarAjustes").addEventListener("click", () => {
@@ -1760,9 +2476,8 @@ $("#btnCerrarAjustes").addEventListener("click", () => {
     avisar("Preparando " + n + (n === 1 ? " foto…" : " fotos…"));
     prepararLote()
       .then(listo => {
-        listo.archivos.forEach(a => descargar(a, a.name));
-        anotarExportadas(listo.registros);
-        return borrarLote(listo.registros);
+        return descargarEnSerie(listo.archivos).then(() =>
+          cerrarLote(listo.registros, listo.nombresPorFoto, listo.asignaciones, listo.piesPorFoto));
       })
       .then(() => avisar(n + " fotos descargadas"))
       .catch(() => avisar("No se pudieron descargar", true));
@@ -1770,18 +2485,32 @@ $("#btnCerrarAjustes").addEventListener("click", () => {
   pintarPendientes();
   pintarListaTests();
 });
+/* Cierra SOLO el protocolo activo. El otro, si existe, queda intacto. */
 $("#btnReiniciar").addEventListener("click", async () => {
+  const otro = RANURAS.filter(r => r !== activa)[0];
+  const hayOtro = !!sesiones[otro];
+
   if(pendientes.length){
     if(!(await permisoParaEmpezarDeNuevo())) return;
   }else{
     const ok = await preguntar(
-      "¿Empezar un protocolo nuevo?",
-      "Se reinician los tests, los casos y los contadores. Las fotos ya guardadas en el teléfono no se tocan.",
-      "Empezar de nuevo", "Cancelar");
+      "¿Cerrar " + nombreDe(activa) + "?",
+      "Se reinician sus tests, casos y contadores." +
+      (hayOtro ? " " + nombreDe(otro) + " no se toca." : "") +
+      " Las fotos ya guardadas en el teléfono no se tocan.",
+      "Cerrar y empezar otro", "Cancelar");
     if(!ok) return;
   }
+
   await descartarPendientes();
-  try{ localStorage.removeItem(CLAVE); }catch(e){}
+  sesiones[activa] = null;
+  // se escribe directo: guardarEstado() volvería a grabar la sesión recién anulada
+  try{
+    localStorage.setItem(CLAVE, JSON.stringify({
+      activa: hayOtro ? otro : activa,     // si queda el otro, se abre ese
+      A: sesiones.A, B: sesiones.B
+    }));
+  }catch(e){}
   location.reload();
 });
 
@@ -1809,10 +2538,25 @@ if(cargarEstado()){
 }
 
 /* Se muestra en pantalla para saber sin adivinar qué versión tiene cada teléfono.
-   Subir este número junto con el CACHE de sw.js en cada cambio. */
-const VERSION = "v13";
-$("#verInicio").textContent = VERSION;
-$("#verAjustes").textContent = VERSION;
+   Formato mayor.menor:
+     - el MAYOR cambia solo si cambia la forma del entregable
+       (0 = archivos sueltos con pie | 1 = zip sin pie | 2 = zip con pie opcional)
+     - el MENOR sube en CADA cambio y nunca se reinicia, así ningún build repite número.
+   Subir siempre junto con el CACHE de sw.js. */
+const VERSION = "2.25";
+$("#verInicio").textContent = VERSION + (ES_PRUEBAS ? " · PRUEBAS" : "");
+$("#verAjustes").textContent = VERSION + (ES_PRUEBAS ? " · PRUEBAS" : "");
+pintarAyudaModo();
+
+/* Cartel imposible de pasar por alto: la versión de pruebas no debe usarse
+   para tomar evidencia real, y sus datos están separados de los de producción. */
+if(ES_PRUEBAS){
+  document.body.classList.add("enPruebas");
+  const c = document.createElement("div");
+  c.id = "cartelPruebas";
+  c.textContent = "VERSIÓN DE PRUEBAS — no usar para evidencia real";
+  document.body.appendChild(c);
+}
 
 /* Al instalarse, Android congela la orientación que decía el manifest en ese
    momento. Esto libera el bloqueo aunque el paquete instalado todavía sea viejo. */
