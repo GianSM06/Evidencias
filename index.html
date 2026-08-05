@@ -202,6 +202,9 @@
   }
   #btnGuardarPend b{display:block; font-size:17px; margin-top:1px}
   .btn.guardar{background:var(--warn); color:#1b1200}
+  /* cola pasada del umbral: el botón pasa de naranja a rojo y queda así */
+  #btnGuardarPend.colaGrande{background:var(--stop2); color:#fff}
+  .btn.guardar.colaGrande{background:var(--stop2); color:#fff}
   #tira:empty::after{content:"Las fotos de esta prueba aparecen acá"; color:var(--tx2); font-size:12.5px}
   #tira img{
     width:44px; height:44px; border-radius:7px; object-fit:cover; flex:none;
@@ -334,7 +337,8 @@
   .filaPap .nom{font-size:12.5px; word-break:break-all; line-height:1.35}
   .btn.borrar{background:var(--stop)}
   .modal h2{margin:0 0 6px; font-size:19px}
-  .modal p.ayuda{margin:0 0 18px; font-size:13.5px; color:var(--tx2); line-height:1.5}
+  .modal p.ayuda{margin:0 0 18px; font-size:13.5px; color:var(--tx2); line-height:1.5;
+                 white-space:pre-line}   /* respeta los saltos de línea de los listados */
   .fila{margin-bottom:18px}
   .fila > span{display:block; font-size:14px; margin-bottom:8px}
   .fila small{display:block; color:var(--tx2); font-size:12.5px; line-height:1.5; margin-top:7px}
@@ -704,6 +708,7 @@ function estadoNuevo(){
     proximaImagen: 1,   // numeración corrida de todo el protocolo
     notas: {},          // { test: { caso: "texto" } }
     indice: [],         // [{ test, caso, n }] de lo ya exportado
+    podadas: null,      // { cantidad, fecha } si hubo que liberar papelera por espacio
     casos: {},          // { test: cantidad de casos }
     ultimoCaso: {},     // { test: último caso trabajado }
     conteos: {},        // { test: { caso: cantidad de imágenes } }
@@ -1012,16 +1017,40 @@ const baseProtocolo = () => limpiarNombre(S.protocolo) || "Protocolo";
 /* =======================================================================
    Guardado en el teléfono
    ======================================================================= */
+/* Las URLs NO se liberan por tiempo. Un zip de decenas de megas puede tardar
+   más de lo previsto en escribirse en el teléfono, y liberar la URL antes corta
+   la descarga en silencio. Se liberan recién cuando arranca la exportación
+   siguiente, o al cerrar la app. */
+let urlsEnVuelo = [];
+const GRACIA_URL_MS = 180000;   // 3 minutos: sobra para escribir un zip grande
+
 function descargar(blob, nombre){
   const url = URL.createObjectURL(blob);
+  urlsEnVuelo.push({ url: url, t: Date.now() });
   const a = document.createElement("a");
   a.href = url;
   a.download = nombre;
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 20000);
 }
+
+/* Solo libera las que ya llevan un rato. Si exportás dos tandas seguidas, la
+   primera puede seguir escribiéndose en el teléfono: liberarla ahí la cortaría
+   por la mitad y el archivo llegaría dañado o no llegaría. */
+function liberarUrlsViejas(){
+  const ahora = Date.now();
+  const quedan = [];
+  urlsEnVuelo.forEach(u => {
+    if(ahora - u.t > GRACIA_URL_MS){ try{ URL.revokeObjectURL(u.url); }catch(e){} }
+    else quedan.push(u);
+  });
+  urlsEnVuelo = quedan;
+}
+window.addEventListener("pagehide", () => {
+  urlsEnVuelo.forEach(u => { try{ URL.revokeObjectURL(u.url); }catch(e){} });
+  urlsEnVuelo = [];
+});
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
@@ -1029,10 +1058,13 @@ const pausa = ms => new Promise(r => setTimeout(r, ms));
    juntas se pierden algunas en silencio, sin ningún aviso. Por eso van de a
    una y espaciadas, mostrando el avance. */
 async function descargarEnSerie(archivos){
+  liberarUrlsViejas();                 // recién ahora se sueltan las de la tanda anterior
   for(let i = 0; i < archivos.length; i++){
     descargar(archivos[i], archivos[i].name);
     avisar("Descargando " + (i + 1) + " de " + archivos.length + "…");
-    await pausa(700);
+    // un zip grande necesita más aire que una foto suelta antes de disparar el siguiente
+    const mb = (archivos[i].size || 0) / 1048576;
+    await pausa(Math.min(6000, 700 + Math.round(mb * 80)));
   }
 }
 
@@ -1080,6 +1112,23 @@ const conPapelera = (modo, fn) => conAlmacen("papelera", modo, fn);
 
 let avisadoEspacio = false;
 
+/* La cola puede abarcar varios tests sin problema: se exporta en un solo zip.
+   Lo que sí conviene evitar es que crezca demasiado, porque ese zip se arma
+   entero en memoria. Se avisa una vez al cruzar el umbral, sin trabar nada. */
+const COLA_GRANDE = 30;
+let avisadoCola = false;
+
+/* Devuelve true solo la vez que se cruza el umbral. El aviso lo muestra quien
+   llama, DESPUÉS del mensaje de "foto sacada": si se mostrara acá, ese mensaje
+   lo pisaría y no lo verías nunca. */
+function revisarTamanoCola(){
+  if(pendientes.length >= COLA_GRANDE && !avisadoCola){
+    avisadoCola = true;
+    return true;
+  }
+  return false;
+}
+
 /* Avisa antes de que el teléfono se quede sin lugar. Sin esto, la primera
    señal de que no hay espacio sería una foto perdida. */
 async function revisarEspacio(){
@@ -1088,6 +1137,15 @@ async function revisarEspacio(){
     const e = await navigator.storage.estimate();
     if(!e.quota) return;
     const libreMB = (e.quota - (e.usage || 0)) / 1048576;
+
+    /* Si falta espacio, la papelera cede primero. Son copias de fotos que YA
+       bajaste; una foto nueva que no se puede guardar no existe en ningún lado.
+       Entre perder la red y perder la evidencia, se pierde la red. */
+    if(libreMB < 200){
+      const sueltas = await podarPapelera(100);
+      if(sueltas) avisar("Poco espacio: se liberaron " + sueltas + " fotos viejas de la papelera", true);
+    }
+
     if(libreMB < 150 && !avisadoEspacio){
       avisadoEspacio = true;
       avisar("Queda poco espacio en el teléfono: exportá lo que tenés en cola", true);
@@ -1108,6 +1166,7 @@ async function encolar(blob){
   pendientes.push(reg);
   pintarPendientes();
   revisarEspacio();
+  reg.avisarCola = revisarTamanoCola();
   return reg;
 }
 
@@ -1132,18 +1191,21 @@ async function descartarPendientes(){
    perdió y hay que reexportarla. Se conservan las últimas TOPE y las más
    viejas caen solas, para que no crezca sin límite.
    ======================================================================= */
-/* 80 fotos son unos 160 MB en disco: pesa poco y da una ventana amplia para
-   darse cuenta de que faltó alguna. La lista NO muestra miniaturas a propósito:
-   decodificar 80 imágenes de 3000 px de golpe puede tumbar la app, y para
-   detectar un faltante lo que se compara contra la carpeta es el nombre. */
-const TOPE_PAPELERA = 80;
+/* El tope por CANTIDAD fue un error de dimensionamiento: con tandas de 60 y 70
+   fotos, 80 se daban vuelta en dos exportaciones, y el faltante se detecta al
+   armar el informe, días después. Se perdió una tanda entera por eso.
+   Ahora el límite es por ESPACIO y generoso: un protocolo de 200 fotos entra
+   completo. Y se guarda por protocolo, así que se libera al cerrarlo.
+   La lista NO muestra miniaturas a propósito: decodificar cientos de imágenes
+   de 3000 px tumbaría la app, y para detectar un faltante se compara el nombre. */
+const TOPE_PAPELERA_MB = 500;
 
 async function aPapelera(registros, nombres, pies){
   try{
     await conPapelera("readwrite", t => {
       registros.forEach((p, i) => {
         t.add({
-          blob: p.blob, test: p.test, caso: p.caso,
+          blob: p.blob, test: p.test, caso: p.caso, sesion: activa,
           // se guarda el pie exacto: si hay que reexportar, sale idéntica
           pie: (pies && pies[i]) || "",
           nombre: (nombres && nombres[i]) || "",
@@ -1155,20 +1217,56 @@ async function aPapelera(registros, nombres, pies){
   }catch(e){}
 }
 
-/* Las claves son autoincrementales, así que las más viejas son las primeras:
-   se puede podar sin traer las imágenes a memoria. */
-async function podarPapelera(){
+/* Poda por espacio, no por cantidad. blob.size es un dato del archivo: leerlo
+   no decodifica la imagen. Se borran las más viejas hasta entrar en el tope. */
+async function podarPapelera(topeMB){
   try{
-    const claves = await conPapelera("readonly", t => t.getAllKeys());
-    if(!claves || claves.length <= TOPE_PAPELERA) return;
-    const sobran = claves.slice(0, claves.length - TOPE_PAPELERA);
-    await conPapelera("readwrite", t => { sobran.forEach(k => t.delete(k)); });
-  }catch(e){}
+    const todas = await conPapelera("readonly", t => t.getAll());
+    if(!todas || !todas.length) return 0;
+    let total = todas.reduce((s, p) => s + (p.blob ? p.blob.size : 0), 0);
+    const limite = (topeMB || TOPE_PAPELERA_MB) * 1048576;
+    if(total <= limite) return 0;
+
+    const borrar = [];
+    todas.sort((a, b) => a.ts - b.ts).forEach(p => {
+      if(total <= limite) return;
+      borrar.push(p.id);
+      total -= (p.blob ? p.blob.size : 0);
+    });
+    if(borrar.length){
+      await conPapelera("readwrite", t => { borrar.forEach(id => t.delete(id)); });
+      // queda registrado: si un día buscás algo y no está, tenés el motivo
+      S.podadas = { n: (S.podadas ? S.podadas.n : 0) + borrar.length, fecha: hoyCorto() };
+      guardarEstado();
+    }
+    return borrar.length;
+  }catch(e){ return 0; }
 }
 
+const hoyCorto = () => {
+  const d = new Date();
+  return dosDig(d.getDate()) + "/" + dosDig(d.getMonth() + 1);
+};
+
+/* Solo las del protocolo activo: las del otro no se mezclan en la lista. */
+const esDeEstaSesion = p => (p.sesion || "A") === activa;
+
 async function contarPapelera(){
-  try{ return (await conPapelera("readonly", t => t.count())) || 0; }
-  catch(e){ return 0; }
+  try{
+    const todas = await conPapelera("readonly", t => t.getAll());
+    const mias = (todas || []).filter(esDeEstaSesion);
+    const mb = mias.reduce((s, p) => s + (p.blob ? p.blob.size : 0), 0) / 1048576;
+    return { cantidad: mias.length, mb: mb };
+  }catch(e){ return { cantidad: 0, mb: 0 }; }
+}
+
+/* Al cerrar un protocolo se liberan sus fotos guardadas; las del otro quedan. */
+async function limpiarPapeleraDe(ranura){
+  try{
+    const todas = await conPapelera("readonly", t => t.getAll());
+    const ids = (todas || []).filter(p => (p.sesion || "A") === ranura).map(p => p.id);
+    if(ids.length) await conPapelera("readwrite", t => { ids.forEach(id => t.delete(id)); });
+  }catch(e){}
 }
 
 /* Pregunta lo que corresponda antes de reiniciar. Devuelve true si hay que seguir. */
@@ -1266,7 +1364,7 @@ let elegidasPapelera = [];
 
 async function abrirPapelera(){
   try{
-    enPapelera = (await conPapelera("readonly", t => t.getAll())) || [];
+    enPapelera = ((await conPapelera("readonly", t => t.getAll())) || []).filter(esDeEstaSesion);
   }catch(e){ enPapelera = []; }
   enPapelera.sort((a, b) => b.ts - a.ts);        // las más nuevas primero
   elegidasPapelera = [];
@@ -1341,7 +1439,7 @@ async function vaciarPapelera(){
     "Las que ya bajaste al teléfono no se tocan.",
     "Vaciar", "Cancelar");
   if(!ok) return;
-  try{ await conPapelera("readwrite", t => t.clear()); }catch(e){}
+  await limpiarPapeleraDe(activa);          // solo las de este protocolo
   enPapelera = [];
   elegidasPapelera = [];
   pintarPapelera();
@@ -1404,8 +1502,15 @@ async function prepararLote(){
     piesPorFoto.push(S.conPie ? pie : "");
   }
 
-  const archivos = [];
-  Object.keys(porTest).map(Number).sort((a, b) => a - b).forEach(t => {
+  /* UNA sola descarga por exportación, siempre.
+     Antes se bajaba un zip por test, y una tanda que abarcaba diez tests
+     disparaba diez descargas seguidas: Android descartó las tres primeras en
+     silencio y se perdieron 19 capturas. Con un archivo único eso no puede pasar.
+     La estructura de carpetas por test se conserva DENTRO del zip. */
+  const entradas = [];
+  const testsDelLote = Object.keys(porTest).map(Number).sort((a, b) => a - b);
+
+  testsDelLote.forEach(t => {
     const carpeta = base + "_Test_" + dosDig(t);
     const g = porTest[t];
 
@@ -1428,8 +1533,24 @@ async function prepararLote(){
       datos: new TextEncoder().encode(csvDeIndice(g.filas))
     });
 
-    archivos.push(new File([armarZip(g.entradas)], carpeta + ".zip", { type: "application/zip" }));
+    g.entradas.forEach(e => entradas.push(e));
   });
+
+  /* Con un solo test conserva el nombre de siempre. Con varios, se identifica
+     por el rango de imágenes, que es único y ordena bien en la carpeta. */
+  let nombreZip;
+  if(testsDelLote.length === 1){
+    nombreZip = base + "_Test_" + dosDig(testsDelLote[0]) + ".zip";
+  }else if(asignaciones.length){
+    nombreZip = base + "_Imagenes_" + tresDig(asignaciones[0].n) +
+                "-" + tresDig(asignaciones[asignaciones.length - 1].n) + ".zip";
+  }else{
+    nombreZip = base + ".zip";
+  }
+
+  const archivos = entradas.length
+    ? [new File([armarZip(entradas)], nombreZip, { type: "application/zip" })]
+    : [];
 
   loteListo = { registros, archivos, fallidas, asignaciones, nombresPorFoto, piesPorFoto };
   return loteListo;
@@ -1495,7 +1616,25 @@ function exportar(lote, archivos, nombres, asignaciones, pies){
   // no se puede hacer de verdad y terminaba siendo un toque de más. La red es
   // la papelera: lo exportado se conserva y se puede reexportar.
   if(!porMenu){                                   // Android / PC: descarga directa
-    return descargarEnSerie(archivos).then(() => cerrarLote(lote, nombres, asignaciones, pies));
+    return descargarEnSerie(archivos).then(() => {
+      // Un solo archivo: sin fricción, como hasta ahora.
+      if(archivos.length === 1) return cerrarLote(lote, nombres, asignaciones, pies);
+
+      // Varios archivos es el caso donde uno se puede perder sin que el
+      // navegador avise. Se pregunta acá, con los nombres a la vista, para
+      // que el faltante se detecte ahora y no días después.
+      return preguntar(
+        "¿Bajaron los " + archivos.length + " archivos?",
+        "Fijate en Descargas que estén:\n" +
+        archivos.map(a => "• " + a.name).join("\n") +
+        "\n\nSi falta alguno, respondé que no: las fotos quedan en la cola y podés reintentar.",
+        "Sí, están todos", "No, falta alguno"
+      ).then(ok => {
+        if(ok) return cerrarLote(lote, nombres, asignaciones, pies);
+        avisar("Siguen en la cola. Volvé a exportar.", true);
+        return false;
+      });
+    });
   }
 
   return navigator.share({ files: archivos }).then(
@@ -1514,12 +1653,19 @@ function exportar(lote, archivos, nombres, asignaciones, pies){
 function pintarPendientes(){
   const n = pendientes.length;
 
+  const grande = n >= COLA_GRANDE;   // señal permanente, no un cartel que se va
+  // acá se reinicia el aviso: es lo único que corre en CADA cambio de la cola,
+  // incluido el vaciado al exportar
+  if(n === 0) avisadoCola = false;
+
   const bCap = $("#btnGuardarPend");
   bCap.classList.toggle("oculto", n === 0);
+  bCap.classList.toggle("colaGrande", grande);
   bCap.innerHTML = "Guardar<b>" + n + "</b>";
 
   const bSel = $("#btnGuardarPendLista");
   bSel.classList.toggle("oculto", n === 0);
+  bSel.classList.toggle("colaGrande", grande);
   bSel.textContent = "Guardar " + n + (n === 1 ? " foto" : " fotos") +
                      (S.guardado === "compartir" ? " en el teléfono" : " en Descargas");
 }
@@ -2192,6 +2338,8 @@ async function registrarFoto(blob, t){
   // el aviso de falla tiene que ser el último, o lo pisa el de "foto sacada"
   if(reg && reg.soloEnMemoria){
     avisar("Sin espacio: esta foto NO quedó guardada. Exportá antes de cerrar la app.", true);
+  }else if(reg && reg.avisarCola){
+    avisar(pendientes.length + " fotos sin exportar. Conviene exportar cuando puedas.", true);
   }else{
     avisar("Test " + S.test + " · Prueba " + S.caso + " · Imagen " + t.nImagen);
   }
@@ -2467,7 +2615,10 @@ $("#btnAjustes").addEventListener("click", () => {
   $("#selGuardado").value = S.guardado;
   $("#inpTotalTests").value = S.totalTests;
   $("#inpProtocolo").value = S.protocolo || "";
-  contarPapelera().then(n => { $("#btnAbrirPapelera").textContent = "Papelera (" + n + ")"; });
+  contarPapelera().then(r => {
+    $("#btnAbrirPapelera").textContent = "Papelera (" + r.cantidad +
+      (r.cantidad ? " · " + (r.mb < 1 ? "<1" : Math.round(r.mb)) + " MB" : "") + ")";
+  });
   $("#filaIndice").classList.remove("oculto");   // el índice existe siempre
   $("#ajustes").classList.remove("oculto");
 });
@@ -2507,14 +2658,16 @@ $("#btnReiniciar").addEventListener("click", async () => {
   }else{
     const ok = await preguntar(
       "¿Cerrar " + nombreDe(activa) + "?",
-      "Se reinician sus tests, casos y contadores." +
+      "Se reinician sus tests, casos y contadores, y se vacía su papelera: " +
+      "ya no vas a poder reexportar nada de este protocolo." +
       (hayOtro ? " " + nombreDe(otro) + " no se toca." : "") +
-      " Las fotos ya guardadas en el teléfono no se tocan.",
+      " Las fotos que ya bajaste al teléfono no se tocan.",
       "Cerrar y empezar otro", "Cancelar");
     if(!ok) return;
   }
 
   await descartarPendientes();
+  await limpiarPapeleraDe(activa);   // libera el espacio de las fotos guardadas por las dudas
   sesiones[activa] = null;
   // se escribe directo: guardarEstado() volvería a grabar la sesión recién anulada
   try{
@@ -2555,7 +2708,7 @@ if(cargarEstado()){
        (0 = archivos sueltos con pie | 1 = zip sin pie | 2 = zip con pie opcional)
      - el MENOR sube en CADA cambio y nunca se reinicia, así ningún build repite número.
    Subir siempre junto con el CACHE de sw.js. */
-const VERSION = "2.26";
+const VERSION = "2.31";
 $("#verInicio").textContent = VERSION + (ES_PRUEBAS ? " · PRUEBAS" : "");
 $("#verAjustes").textContent = VERSION + (ES_PRUEBAS ? " · PRUEBAS" : "");
 pintarAyudaModo();
@@ -2574,6 +2727,18 @@ if(ES_PRUEBAS){
    momento. Esto libera el bloqueo aunque el paquete instalado todavía sea viejo. */
 try{
   if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+}catch(e){}
+
+/* Pide que el navegador NO descarte estos datos por su cuenta. iOS limpia el
+   almacenamiento de sitios poco usados, y ahora la papelera guarda un protocolo
+   entero durante días: sin esto, el sistema podría barrer la única copia de
+   recuperación mientras el teléfono está guardado. */
+try{
+  if(navigator.storage && navigator.storage.persist){
+    navigator.storage.persisted()
+      .then(ya => { if(!ya) return navigator.storage.persist(); })
+      .catch(() => {});
+  }
 }catch(e){}
 
 recuperarPendientes();
