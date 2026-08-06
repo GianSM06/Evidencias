@@ -302,7 +302,7 @@
   .modal{position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:80; display:flex; align-items:flex-end; justify-content:center}
   /* Modales que se abren DESDE otro modal: tienen que quedar por encima, o el
      de abajo los tapa y parece que el botón no hizo nada. */
-  #modalPapelera, #modalNuevoProt{z-index:95}
+  #modalPapelera, #modalNuevoProt, #modalVerif{z-index:95}
   #modalPregunta{z-index:110}     /* puede abrirse desde cualquiera de los otros */
   .modal .caja{
     background:var(--panel); width:100%; max-width:520px; border-radius:18px 18px 0 0;
@@ -325,7 +325,7 @@
   #fotoNav span{flex:1; text-align:center; font-size:13px; color:var(--tx2)}
 
   /* papelera */
-  #listaPapelera{max-height:44vh; overflow-y:auto; margin-bottom:14px}
+  #listaPapelera, #listaVerif{max-height:44vh; overflow-y:auto; margin-bottom:14px}
   .filaPap{
     display:flex; align-items:center; gap:11px; width:100%; text-align:left;
     background:var(--panel2); border:1px solid var(--line); border-radius:11px;
@@ -610,6 +610,16 @@
   </div>
 </section>
 
+<!-- ============ MODAL: resultado de la verificación ============ -->
+<section id="modalVerif" class="modal oculto">
+  <div class="caja">
+    <h2 id="tituloVerif">—</h2>
+    <p class="ayuda" id="textoVerif">—</p>
+    <div id="listaVerif" class="oculto"></div>
+    <button id="btnCerrarVerif" class="btn">Listo</button>
+  </div>
+</section>
+
 <!-- ============ MODAL: ajustes ============ -->
 <section id="ajustes" class="modal oculto">
   <div class="caja">
@@ -645,9 +655,16 @@
     </div>
 
     <div class="fila">
+      <span>Verificar la última descarga</span>
+      <button id="btnVerificar" class="btn sec" style="margin-top:0">Elegir el archivo que bajó</button>
+      <input id="inpVerificar" type="file" accept=".zip,application/zip" class="oculto">
+      <small>Buscá en Descargas el zip de la última exportación y elegilo. La app lo abre y controla que estén todas las imágenes, una por una. Es la única forma de saber si la descarga llegó completa: el navegador no se lo dice.</small>
+    </div>
+
+    <div class="fila">
       <span>Fotos ya exportadas</span>
       <button id="btnAbrirPapelera" class="btn sec" style="margin-top:0">Papelera (—)</button>
-      <small>Guarda las últimas 80 fotos exportadas por si alguna descarga se perdió. Desde ahí las podés volver a exportar o borrarlas.</small>
+      <small>Guarda hasta 500 MB de fotos exportadas de este protocolo —200 fotos entran completas— por si alguna descarga se perdió. Desde ahí las podés volver a exportar o borrarlas. Se libera al cerrar el protocolo.</small>
     </div>
 
     <p class="ayuda" style="margin:0">Versión instalada: <b id="verAjustes">—</b></p>
@@ -708,7 +725,7 @@ function estadoNuevo(){
     proximaImagen: 1,   // numeración corrida de todo el protocolo
     notas: {},          // { test: { caso: "texto" } }
     indice: [],         // [{ test, caso, n }] de lo ya exportado
-    podadas: null,      // { cantidad, fecha } si hubo que liberar papelera por espacio
+    podadas: null,      // { n, fecha } si hubo que liberar papelera por espacio
     casos: {},          // { test: cantidad de casos }
     ultimoCaso: {},     // { test: último caso trabajado }
     conteos: {},        // { test: { caso: cantidad de imágenes } }
@@ -966,7 +983,9 @@ function fechaZip(d){
   };
 }
 
-/* entradas: [{ nombre, datos:Uint8Array }] — las barras del nombre crean carpetas */
+/* entradas: [{ nombre, datos:Uint8Array, crc? }] — las barras del nombre crean
+   carpetas. Si la entrada ya trae el crc calculado se reusa: recorrer 400 MB de
+   fotos dos veces por gusto es medio segundo largo de teléfono. */
 function armarZip(entradas){
   const cod = new TextEncoder();
   const partes = [], central = [];
@@ -975,7 +994,7 @@ function armarZip(entradas){
 
   entradas.forEach(e => {
     const nombre = cod.encode(e.nombre);
-    const crc = crc32(e.datos);
+    const crc = (e.crc === undefined) ? crc32(e.datos) : e.crc;
     const tam = e.datos.length;
 
     const l = new DataView(new ArrayBuffer(30));
@@ -1214,29 +1233,60 @@ async function aPapelera(registros, nombres, pies){
       });
     });
     await podarPapelera();
-  }catch(e){}
+    return true;
+  }catch(e){
+    /* Casi siempre es falta de espacio. La exportación sigue —el archivo ya se
+       bajó— pero quien llama tiene que decirlo: sin copia en la papelera, si
+       esa descarga no llegó, no hay de dónde sacarla. */
+    return false;
+  }
 }
 
 /* Poda por espacio, no por cantidad. blob.size es un dato del archivo: leerlo
-   no decodifica la imagen. Se borran las más viejas hasta entrar en el tope. */
+   no decodifica la imagen. Se borran las más viejas hasta entrar en el tope.
+
+   El presupuesto es POR PROTOCOLO, no compartido. Si fuera uno solo para los
+   dos, exportar en B se iría comiendo las copias de A —el protocolo que quizá
+   ni estás mirando— y eso es justo lo que hay que evitar trabajando en
+   paralelo. El costo es que en el peor caso la papelera ocupa el doble; por eso
+   existe la poda de emergencia por falta de espacio, que también es por
+   protocolo y los deja chicos a los dos. */
 async function podarPapelera(topeMB){
   try{
     const todas = await conPapelera("readonly", t => t.getAll());
     if(!todas || !todas.length) return 0;
-    let total = todas.reduce((s, p) => s + (p.blob ? p.blob.size : 0), 0);
     const limite = (topeMB || TOPE_PAPELERA_MB) * 1048576;
-    if(total <= limite) return 0;
+
+    const porRanura = {};
+    todas.forEach(p => {
+      const r = p.sesion || "A";
+      (porRanura[r] = porRanura[r] || []).push(p);
+    });
 
     const borrar = [];
-    todas.sort((a, b) => a.ts - b.ts).forEach(p => {
+    const cuenta = {};
+    Object.keys(porRanura).forEach(r => {
+      const grupo = porRanura[r];
+      let total = grupo.reduce((s, p) => s + (p.blob ? p.blob.size : 0), 0);
       if(total <= limite) return;
-      borrar.push(p.id);
-      total -= (p.blob ? p.blob.size : 0);
+      grupo.sort((a, b) => a.ts - b.ts).forEach(p => {
+        if(total <= limite) return;
+        borrar.push(p.id);
+        cuenta[r] = (cuenta[r] || 0) + 1;
+        total -= (p.blob ? p.blob.size : 0);
+      });
     });
+
     if(borrar.length){
       await conPapelera("readwrite", t => { borrar.forEach(id => t.delete(id)); });
-      // queda registrado: si un día buscás algo y no está, tenés el motivo
-      S.podadas = { n: (S.podadas ? S.podadas.n : 0) + borrar.length, fecha: hoyCorto() };
+      /* Queda registrado en el protocolo al que le tocó: si un día buscás algo
+         y no está, tenés el motivo. Se anota aunque sea el protocolo que no
+         está activo, porque ahí es donde más fácil pasa desapercibido. */
+      Object.keys(cuenta).forEach(r => {
+        const est = (r === activa) ? S : sesiones[r];
+        if(!est) return;
+        est.podadas = { n: (est.podadas ? est.podadas.n : 0) + cuenta[r], fecha: hoyCorto() };
+      });
       guardarEstado();
     }
     return borrar.length;
@@ -1378,12 +1428,21 @@ function pintarPapelera(){
 
   // blob.size no decodifica la imagen: es solo el dato del archivo
   const mb = enPapelera.reduce((s, p) => s + (p.blob ? p.blob.size : 0), 0) / 1048576;
-  $("#txtPapelera").textContent = enPapelera.length
+  /* Si hubo poda, se dice acá y no en un cartel que se va: es la única
+     explicación de por qué una foto que exportaste no aparece en la lista.
+     Sin esto la papelera miente por omisión. */
+  const podado = S.podadas && S.podadas.n
+    ? " Ojo: se liberaron " + S.podadas.n +
+      (S.podadas.n === 1 ? " foto vieja" : " fotos viejas") +
+      " por falta de espacio (última vez, el " + S.podadas.fecha + ")."
+    : "";
+
+  $("#txtPapelera").textContent = (enPapelera.length
     ? "Últimas " + enPapelera.length + (enPapelera.length === 1 ? " foto exportada" : " fotos exportadas") +
       " (" + (mb < 0.5 ? "menos de 1 MB"
                        : (mb < 10 ? Math.round(mb * 10) / 10 : Math.round(mb)) + " MB") + ")." +
       " Tocá las que falten en la carpeta y volvé a exportarlas."
-    : "No hay fotos exportadas guardadas todavía.";
+    : "No hay fotos exportadas guardadas todavía.") + podado;
 
   enPapelera.forEach(p => {
     const fila = document.createElement("button");
@@ -1405,30 +1464,63 @@ function pintarPapelera(){
   $("#btnVaciarPapelera").classList.toggle("oculto", enPapelera.length === 0);
 }
 
-/* Reexporta tal cual estaban: mismo pie y mismo nombre de archivo. */
+/* Reexporta tal cual estaban: mismo pie y mismo nombre de archivo.
+   UNA sola descarga, igual que la exportación normal. Bajarlas sueltas era
+   volver a la ráfaga que hizo perder 19 capturas —y espaciarlas no alcanza:
+   aquella pérdida ya fue con descargas espaciadas—. Acá es todavía más grave,
+   porque este es el camino que usás justamente cuando ya te falta algo.
+   Una sola foto sí baja suelta: es una descarga igual, y sin zip que abrir. */
 async function reexportarDePapelera(){
   const lote = enPapelera.filter(p => elegidasPapelera.indexOf(p.id) !== -1);
   if(!lote.length) return;
   avisar("Preparando " + lote.length + (lote.length === 1 ? " foto…" : " fotos…"));
 
-  const archivos = [];
+  const base = baseProtocolo();
+  const listas = [];        // { nombre, blob } ya estampadas
+  let fallidas = 0;
   for(const p of lote){
     try{
       // se reexporta con el pie que tenía; si no llevaba, sale tal cual
       const salida = p.pie ? await estamparDesdeBlob(p.blob, p.pie) : p.blob;
-      archivos.push(new File([salida], p.nombre || "foto.jpg", { type: "image/jpeg" }));
-    }catch(e){}
+      listas.push({ nombre: p.nombre || "foto.jpg", blob: salida, test: p.test, caso: p.caso });
+    }catch(e){ fallidas++; }
   }
-  if(!archivos.length){ avisar("No se pudieron preparar", true); return; }
+  if(!listas.length){ avisar("No se pudieron preparar", true); return; }
+
+  let archivos;
+  if(listas.length === 1){
+    archivos = [new File([listas[0].blob], listas[0].nombre, { type: "image/jpeg" })];
+  }else{
+    // misma estructura de carpetas que la exportación normal, para que la
+    // foto recuperada caiga en el mismo lugar del informe
+    const entradas = [], numeros = [];
+    for(const f of listas){
+      const carpeta = f.test
+        ? base + "_Test_" + dosDig(f.test) + "/Prueba_" + dosDig(f.caso || 1) + "/"
+        : "";
+      entradas.push({
+        nombre: carpeta + f.nombre,
+        datos: new Uint8Array(await f.blob.arrayBuffer())
+      });
+      const m = f.nombre.match(/(\d{3})\.jpg$/i);
+      if(m) numeros.push(m[1]);
+    }
+    numeros.sort();
+    const rango = numeros.length
+      ? "_" + numeros[0] + "-" + numeros[numeros.length - 1] : "";
+    archivos = [new File([armarZip(entradas)],
+                base + "_Recuperadas" + rango + ".zip", { type: "application/zip" })];
+  }
+  if(fallidas) avisar("No se pudieron preparar " + fallidas + " de " + lote.length, true);
 
   $("#modalPapelera").classList.add("oculto");
   if(S.guardado === "compartir" && navigator.canShare && navigator.canShare({ files: archivos })){
     navigator.share({ files: archivos })
-      .then(() => avisar(archivos.length + " reexportadas"))
+      .then(() => avisar(listas.length + " reexportadas"))
       .catch(() => avisar("Cancelado", true));
   }else{
     await descargarEnSerie(archivos);
-    avisar(archivos.length + (archivos.length === 1 ? " foto reexportada" : " fotos reexportadas"));
+    avisar(listas.length + (listas.length === 1 ? " foto reexportada" : " fotos reexportadas"));
   }
 }
 
@@ -1444,6 +1536,169 @@ async function vaciarPapelera(){
   elegidasPapelera = [];
   pintarPapelera();
   avisar("Papelera vaciada");
+}
+
+/* =======================================================================
+   Verificación de la descarga
+   Una app web NO puede mirar la carpeta de Descargas del teléfono, ni enterarse
+   de si una descarga llegó: no hay API y el navegador no avisa. Eso es lo que
+   hizo que 19 capturas se perdieran en silencio.
+   Lo único que sí se puede: que vos le acerques el archivo bajado. La app lo
+   abre y lo compara contra lo que generó —cantidad, nombres, tamaños y CRC—.
+   Se lee SOLO la cola del archivo (el directorio central del zip), no los
+   cientos de megas de fotos: si se cargara entero en memoria, un protocolo
+   grande tumbaría la app justo en el momento de verificar.
+   ======================================================================= */
+const CLAVE_VERIF = "evidencias.verificacion.v1" + SUFIJO;
+
+function guardarVerificacion(datos){
+  try{
+    const t = JSON.parse(localStorage.getItem(CLAVE_VERIF) || "{}");
+    t[activa] = datos;
+    localStorage.setItem(CLAVE_VERIF, JSON.stringify(t));
+  }catch(e){}          // si no entra, la verificación no anda; exportar sí
+}
+
+function leerVerificacion(){
+  try{ return (JSON.parse(localStorage.getItem(CLAVE_VERIF) || "{}"))[activa] || null; }
+  catch(e){ return null; }
+}
+
+/* Al cerrar el protocolo el manifiesto deja de tener sentido: verificar contra
+   una exportación de un protocolo que ya no existe solo confunde. */
+function olvidarVerificacion(){
+  try{
+    const t = JSON.parse(localStorage.getItem(CLAVE_VERIF) || "{}");
+    delete t[activa];
+    localStorage.setItem(CLAVE_VERIF, JSON.stringify(t));
+  }catch(e){}
+}
+
+/* Lee el directorio central de un zip. Devuelve [{ruta, bytes, crc}] o null si
+   el archivo no es un zip o está cortado. */
+function leerDirectorioZip(colaBuf, tamArchivo){
+  const dv = new DataView(colaBuf);
+  const u8 = new Uint8Array(colaBuf);
+  const desde = tamArchivo - colaBuf.byteLength;   // dónde empieza el pedazo leído
+
+  // el fin del directorio central está al final del archivo
+  let fin = -1;
+  for(let i = u8.length - 22; i >= 0; i--){
+    if(dv.getUint32(i, true) === 0x06054b50){ fin = i; break; }
+  }
+  if(fin < 0) return null;
+
+  const cant = dv.getUint16(fin + 8, true);
+  let off = dv.getUint32(fin + 16, true) - desde;   // a coordenadas del pedazo
+  if(off < 0 || off >= u8.length) return null;      // el directorio no entró en la cola
+
+  const salida = [];
+  const dec = new TextDecoder();
+  for(let i = 0; i < cant; i++){
+    if(off + 46 > u8.length || dv.getUint32(off, true) !== 0x02014b50) return null;
+    const crc   = dv.getUint32(off + 16, true);
+    const bytes = dv.getUint32(off + 24, true);
+    const lNom  = dv.getUint16(off + 28, true);
+    const lExt  = dv.getUint16(off + 30, true);
+    const lCom  = dv.getUint16(off + 32, true);
+    salida.push({ ruta: dec.decode(u8.subarray(off + 46, off + 46 + lNom)), bytes: bytes, crc: crc });
+    off += 46 + lNom + lExt + lCom;
+  }
+  return salida;
+}
+
+/* Lee de a pedazos cada vez más grandes: con pocas fotos alcanzan 64 KB. */
+async function directorioDe(file){
+  const tamanos = [65536, 1048576, 8388608];
+  for(const t of tamanos){
+    const trozo = Math.min(t, file.size);
+    const buf = await file.slice(file.size - trozo).arrayBuffer();
+    const d = leerDirectorioZip(buf, file.size);
+    if(d) return d;
+    if(trozo >= file.size) return null;
+  }
+  return null;
+}
+
+async function verificarDescarga(file){
+  const v = leerVerificacion();
+  if(!v){
+    mostrarVerificacion("No hay nada para comparar",
+      "Todavía no exportaste nada en este protocolo desde esta app, así que no hay " +
+      "una lista contra la cual verificar.", []);
+    return;
+  }
+
+  const cabecera = "Comparando contra " + v.zip + " — " + v.archivos.length +
+    (v.archivos.length === 1 ? " imagen" : " imágenes") + ", exportado el " +
+    new Date(v.ts).toLocaleString() + ".";
+
+  if(file.size !== v.bytesZip){
+    /* El tamaño no coincide: o es otro archivo, o llegó cortado. Cortado es el
+       caso peligroso, y así se detecta sin leer los cientos de megas. */
+    // en MB salvo que sea chico: "pesa 0.0 MB y tendría que pesar 0.0 MB" no dice nada
+    const mb = t => t < 1048576 ? Math.max(1, Math.round(t / 1024)) + " KB"
+                                : (t / 1048576).toFixed(1) + " MB";
+    mostrarVerificacion("Ese archivo no es el que se exportó",
+      cabecera + "\n\nEse archivo pesa " + mb(file.size) + " y tendría que pesar " +
+      mb(v.bytesZip) + ". Puede que hayas elegido otro archivo, o que la descarga " +
+      "haya llegado cortada. Si es lo segundo, volvé a exportar desde la papelera.", []);
+    return;
+  }
+
+  let dentro;
+  try{ dentro = await directorioDe(file); }catch(e){ dentro = null; }
+  if(!dentro){
+    mostrarVerificacion("No se pudo leer el archivo",
+      cabecera + "\n\nNo parece un zip de los que arma la app, o está dañado. " +
+      "Si lo bajaste de acá y no abre, volvé a exportar desde la papelera.", []);
+    return;
+  }
+
+  const porRuta = {};
+  dentro.forEach(e => { porRuta[e.ruta] = e; });
+
+  const faltan = [], distintas = [];
+  v.archivos.forEach(a => {
+    const e = porRuta[a.ruta];
+    if(!e) faltan.push(a.ruta);
+    else if(e.crc !== a.crc || e.bytes !== a.bytes) distintas.push(a.ruta);
+  });
+
+  const soloNombre = r => r.split("/").pop();
+  if(!faltan.length && !distintas.length){
+    mostrarVerificacion("Está todo",
+      cabecera + "\n\nLas " + v.archivos.length + " imágenes están en el archivo y " +
+      "coinciden una por una. Podés vaciar la papelera de este protocolo si querés " +
+      "recuperar espacio.", []);
+    return;
+  }
+
+  const total = faltan.length + distintas.length;
+  mostrarVerificacion(
+    faltan.length
+      ? (faltan.length === 1 ? "Falta 1 imagen" : "Faltan " + faltan.length + " imágenes")
+      : (distintas.length === 1 ? "Hay 1 imagen con problemas" : "Hay " + distintas.length + " imágenes con problemas"),
+    cabecera + "\n\n" +
+    (faltan.length ? faltan.length + (faltan.length === 1 ? " imagen no está" : " imágenes no están") + " en el archivo. " : "") +
+    (distintas.length ? distintas.length + (distintas.length === 1 ? " no coincide" : " no coinciden") + " con lo que se exportó. " : "") +
+    "Entrá a la papelera y volvé a exportar " + (total === 1 ? "esta:" : "estas:"),
+    faltan.concat(distintas).map(soloNombre));
+}
+
+function mostrarVerificacion(titulo, texto, lista){
+  $("#tituloVerif").textContent = titulo;
+  $("#textoVerif").textContent = texto;
+  const cont = $("#listaVerif");
+  cont.innerHTML = "";
+  lista.forEach(n => {
+    const f = document.createElement("div");
+    f.className = "filaPap";
+    f.innerHTML = '<span class="nom">' + n + '</span>';
+    cont.appendChild(f);
+  });
+  cont.classList.toggle("oculto", !lista.length);
+  $("#modalVerif").classList.remove("oculto");
 }
 
 /* Estampa todas las pendientes con la numeración que tienen AHORA y deja los
@@ -1471,6 +1726,7 @@ async function prepararLote(){
   const base = baseProtocolo();
   const porTest = {};
   const registros = [], fallidas = [], asignaciones = [], nombresPorFoto = [], piesPorFoto = [];
+  const manifiesto = [];        // lo que este zip DEBE tener, para poder verificarlo después
   let numero = S.proximaImagen;
 
   for(let i = 0; i < orden.length; i++){
@@ -1488,12 +1744,12 @@ async function prepararLote(){
     numero++;
     const carpeta = base + "_Test_" + dosDig(p.test);
     const archivo = base + "_Imagen_" + tresDig(n) + ".jpg";
+    const ruta = carpeta + "/Prueba_" + dosDig(p.caso) + "/" + archivo;
+    const crc = crc32(datos);
 
     if(!porTest[p.test]) porTest[p.test] = { entradas: [], filas: [] };
-    porTest[p.test].entradas.push({
-      nombre: carpeta + "/Prueba_" + dosDig(p.caso) + "/" + archivo,
-      datos: datos
-    });
+    porTest[p.test].entradas.push({ nombre: ruta, datos: datos, crc: crc });
+    manifiesto.push({ ruta: ruta, bytes: datos.length, crc: crc });
     porTest[p.test].filas.push({ test: p.test, caso: p.caso, n: n });
 
     registros.push(p);
@@ -1548,12 +1804,49 @@ async function prepararLote(){
     nombreZip = base + ".zip";
   }
 
-  const archivos = entradas.length
-    ? [new File([armarZip(entradas)], nombreZip, { type: "application/zip" })]
-    : [];
+  /* Va en la raíz del zip, a la vista al abrirlo: dice cuántas imágenes tiene
+     que haber. Es la verificación que se puede hacer en la compu sin la app,
+     de un vistazo, comparando contra la cantidad de archivos de la carpeta. */
+  if(entradas.length && manifiesto.length){
+    entradas.unshift({
+      nombre: "verificacion.txt",
+      datos: new TextEncoder().encode(textoVerificacion(nombreZip, manifiesto, asignaciones))
+    });
+  }
 
-  loteListo = { registros, archivos, fallidas, asignaciones, nombresPorFoto, piesPorFoto };
+  const zip = entradas.length ? armarZip(entradas) : null;
+  const archivos = zip ? [new File([zip], nombreZip, { type: "application/zip" })] : [];
+
+  loteListo = { registros, archivos, fallidas, asignaciones, nombresPorFoto, piesPorFoto,
+                verificacion: zip ? {
+                  zip: nombreZip, bytesZip: zip.size, ts: Date.now(), archivos: manifiesto
+                } : null };
   return loteListo;
+}
+
+/* El texto que viaja adentro del zip. Sin la app y sin internet, esto solo
+   alcanza para saber si llegó todo. */
+function textoVerificacion(nombreZip, manifiesto, asignaciones){
+  const d = new Date();
+  const n = manifiesto.length;
+  const rango = asignaciones.length
+    ? tresDig(asignaciones[0].n) + " a " + tresDig(asignaciones[asignaciones.length - 1].n)
+    : "—";
+  let s = "VERIFICACIÓN DE LA EXPORTACIÓN\r\n\r\n";
+  s += "Protocolo: " + (S.protocolo || "sin nombre") + "\r\n";
+  s += "Archivo: " + nombreZip + "\r\n";
+  s += "Fecha: " + dosDig(d.getDate()) + "/" + dosDig(d.getMonth() + 1) + "/" + d.getFullYear() +
+       " " + dosDig(d.getHours()) + ":" + dosDig(d.getMinutes()) + "\r\n\r\n";
+  s += "IMÁGENES QUE TIENE QUE HABER: " + n + "\r\n";
+  s += "Números: " + rango + "\r\n\r\n";
+  s += "Si al pasar esto a la computadora la carpeta no tiene " + n + " imágenes,\r\n";
+  s += "falta algo: entrá a la papelera de la app (⚙ → Ajustes → Papelera) y\r\n";
+  s += "volvé a exportar las que falten. Se puede hasta que cierres el protocolo.\r\n\r\n";
+  s += "Listado (ruta;bytes;crc32)\r\n";
+  manifiesto.forEach(a => {
+    s += a.ruta + ";" + a.bytes + ";" + a.crc.toString(16).padStart(8, "0") + "\r\n";
+  });
+  return s;
 }
 
 function anotarExportadas(registros){
@@ -1581,11 +1874,20 @@ function cerrarLote(lote, nombres, asignaciones, pies){
     // las notas de un test ya exportado dejan de ser editables
     guardarEstado();
   }
+  // se guarda lo que este archivo DEBE contener, para poder verificarlo después
+  if(loteListo && loteListo.verificacion) guardarVerificacion(loteListo.verificacion);
   loteListo = null;               // ya se exportó: que no quede un lote viejo a mano
   return aPapelera(lote, nombres, pies)
-    .then(() => borrarLote(lote))
-    .then(() => {
-      avisar(lote.length + (lote.length === 1 ? " foto guardada" : " fotos guardadas"));
+    .then(conRespaldo => borrarLote(lote).then(() => conRespaldo))
+    .then(conRespaldo => {
+      if(conRespaldo){
+        // la cantidad a la vista: es contra este número que se verifica la carpeta
+        avisar(lote.length + (lote.length === 1 ? " foto guardada" : " fotos guardadas") +
+               " en 1 archivo");
+      }else{
+        // sin red: si el archivo no bajó, esta es la única oportunidad de notarlo
+        avisar("Guardadas, pero SIN copia de respaldo: revisá en Descargas que el archivo esté", true);
+      }
       return true;
     });
 }
@@ -2535,6 +2837,19 @@ $("#btnConfirmarNuevoProt").addEventListener("click", confirmarProtocoloNuevo);
 $("#btnCancelarNuevoProt").addEventListener("click", () => $("#modalNuevoProt").classList.add("oculto"));
 
 $("#btnIndiceMaestro").addEventListener("click", descargarIndiceMaestro);
+
+/* El selector de archivos va escondido: el botón visible lo dispara. Se limpia
+   el valor para que elegir DOS VECES el mismo archivo vuelva a disparar. */
+$("#btnVerificar").addEventListener("click", () => $("#inpVerificar").click());
+$("#inpVerificar").addEventListener("change", e => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if(!f) return;
+  avisar("Revisando el archivo…");
+  verificarDescarga(f).catch(() => avisar("No se pudo leer el archivo", true));
+});
+$("#btnCerrarVerif").addEventListener("click", () => $("#modalVerif").classList.add("oculto"));
+
 $("#btnAbrirPapelera").addEventListener("click", abrirPapelera);
 $("#btnCerrarPapelera").addEventListener("click", () => $("#modalPapelera").classList.add("oculto"));
 $("#btnReexportar").addEventListener("click", reexportarDePapelera);
@@ -2668,6 +2983,7 @@ $("#btnReiniciar").addEventListener("click", async () => {
 
   await descartarPendientes();
   await limpiarPapeleraDe(activa);   // libera el espacio de las fotos guardadas por las dudas
+  olvidarVerificacion();             // el manifiesto es del protocolo que se cierra
   sesiones[activa] = null;
   // se escribe directo: guardarEstado() volvería a grabar la sesión recién anulada
   try{
@@ -2708,7 +3024,7 @@ if(cargarEstado()){
        (0 = archivos sueltos con pie | 1 = zip sin pie | 2 = zip con pie opcional)
      - el MENOR sube en CADA cambio y nunca se reinicia, así ningún build repite número.
    Subir siempre junto con el CACHE de sw.js. */
-const VERSION = "2.31";
+const VERSION = "2.34";
 $("#verInicio").textContent = VERSION + (ES_PRUEBAS ? " · PRUEBAS" : "");
 $("#verAjustes").textContent = VERSION + (ES_PRUEBAS ? " · PRUEBAS" : "");
 pintarAyudaModo();
